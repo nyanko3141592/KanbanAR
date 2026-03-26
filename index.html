@@ -1,0 +1,525 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>卒業式AR看板カメラ</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+      background: #000;
+      overflow: hidden;
+      touch-action: manipulation;
+      -webkit-user-select: none;
+      user-select: none;
+      height: 100dvh;
+      width: 100vw;
+    }
+
+    /* ── Setup Screen ── */
+    #setup-screen {
+      position: fixed; inset: 0;
+      background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 40%, #4a2c6e 100%);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; gap: 24px; padding: 24px;
+    }
+    #setup-screen h1 {
+      color: #f0d060;
+      font-size: 28px;
+      text-align: center;
+      text-shadow: 0 2px 8px rgba(240, 208, 96, 0.4);
+    }
+    #setup-screen p {
+      color: #ccc; font-size: 14px; text-align: center;
+    }
+    #setup-screen input {
+      font-family: inherit;
+      font-size: 20px; padding: 14px 20px;
+      border: 2px solid #f0d060; border-radius: 12px;
+      background: rgba(255,255,255,0.08); color: #fff;
+      text-align: center; width: 100%; max-width: 360px;
+      outline: none;
+    }
+    #setup-screen input::placeholder { color: rgba(255,255,255,0.35); }
+    #setup-screen input:focus { border-color: #ffd700; background: rgba(255,255,255,0.12); }
+    #start-btn {
+      font-family: inherit;
+      font-size: 18px; padding: 14px 48px;
+      background: linear-gradient(135deg, #f0d060, #e8a030);
+      color: #1a0a2e; border: none; border-radius: 12px;
+      font-weight: bold; cursor: pointer;
+      box-shadow: 0 4px 20px rgba(240, 208, 96, 0.4);
+      transition: transform 0.15s;
+    }
+    #start-btn:active { transform: scale(0.95); }
+
+    /* ── Camera Screen ── */
+    #camera-screen { display: none; position: fixed; inset: 0; }
+
+    video#camera {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover;
+    }
+
+    canvas#overlay {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%;
+      pointer-events: none;
+    }
+
+    /* ── Controls ── */
+    #controls {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: center;
+      padding: 24px 16px 40px; gap: 24px;
+      background: linear-gradient(transparent, rgba(0,0,0,0.5));
+    }
+
+    #shutter-btn {
+      width: 72px; height: 72px; border-radius: 50%;
+      background: #fff; border: 4px solid rgba(255,255,255,0.6);
+      cursor: pointer; position: relative;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
+      transition: transform 0.1s;
+      flex-shrink: 0;
+    }
+    #shutter-btn::after {
+      content: ''; position: absolute;
+      inset: 4px; border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.1);
+    }
+    #shutter-btn:active { transform: scale(0.9); }
+
+    .side-btn {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(255,255,255,0.2); border: none;
+      color: #fff; font-size: 22px; cursor: pointer;
+      backdrop-filter: blur(8px);
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .side-btn:active { background: rgba(255,255,255,0.35); }
+
+    /* ── Top bar ── */
+    #top-bar {
+      position: absolute; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px;
+      padding-top: max(12px, env(safe-area-inset-top));
+      background: linear-gradient(rgba(0,0,0,0.4), transparent);
+    }
+    #top-bar .side-btn { width: 40px; height: 40px; font-size: 18px; }
+
+    /* ── Size slider ── */
+    #size-control {
+      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    #size-slider {
+      writing-mode: vertical-lr;
+      direction: rtl;
+      width: 36px; height: 160px;
+      accent-color: #f0d060;
+      opacity: 0.7;
+    }
+    #size-label {
+      color: #fff; font-size: 11px;
+      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    }
+
+    /* ── Flash effect ── */
+    #flash {
+      position: fixed; inset: 0;
+      background: #fff; opacity: 0;
+      pointer-events: none; z-index: 50;
+      transition: opacity 0.1s;
+    }
+    #flash.active { opacity: 1; transition: none; }
+
+    /* ── Preview modal ── */
+    #preview-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,0.9);
+      z-index: 80;
+      flex-direction: column; align-items: center; justify-content: center;
+      padding: 20px; gap: 16px;
+    }
+    #preview-modal.show { display: flex; }
+    #preview-img {
+      max-width: 100%; max-height: 70vh;
+      border-radius: 8px; object-fit: contain;
+    }
+    #preview-actions { display: flex; gap: 16px; }
+    #preview-actions button {
+      font-family: inherit;
+      font-size: 16px; padding: 12px 32px;
+      border: none; border-radius: 10px;
+      cursor: pointer; font-weight: bold;
+    }
+    #save-btn {
+      background: linear-gradient(135deg, #f0d060, #e8a030);
+      color: #1a0a2e;
+    }
+    #close-preview-btn {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Setup Screen -->
+  <div id="setup-screen">
+    <h1>🎓 卒業式AR看板カメラ</h1>
+    <p>大学名を入力してカメラを起動しよう</p>
+    <input id="uni-name" type="text" placeholder="例：東京大学" autocomplete="off">
+    <button id="start-btn">カメラを起動</button>
+  </div>
+
+  <!-- Camera Screen -->
+  <div id="camera-screen">
+    <video id="camera" autoplay playsinline muted></video>
+    <canvas id="overlay"></canvas>
+
+    <div id="top-bar">
+      <button class="side-btn" id="back-btn">←</button>
+      <button class="side-btn" id="flip-btn">🔄</button>
+    </div>
+
+    <div id="size-control">
+      <label id="size-label">サイズ</label>
+      <input type="range" id="size-slider" min="40" max="100" value="70">
+    </div>
+
+    <div id="controls">
+      <button class="side-btn" id="style-btn">🎨</button>
+      <button id="shutter-btn"></button>
+      <button class="side-btn" id="move-btn">✋</button>
+    </div>
+  </div>
+
+  <div id="flash"></div>
+
+  <!-- Preview Modal -->
+  <div id="preview-modal">
+    <img id="preview-img">
+    <div id="preview-actions">
+      <button id="close-preview-btn">閉じる</button>
+      <button id="save-btn">保存</button>
+    </div>
+  </div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// ── State ──
+let stream = null;
+let facingMode = 'environment';
+let universityName = '';
+let kanbanScale = 0.7;
+let kanbanX = 0.5;   // 0-1 relative
+let kanbanY = 0.55;
+let styleIndex = 0;
+let isDragging = false;
+let dragMode = false;
+
+const styles = [
+  { bg: '#8B0000',   border: '#D4AF37', text: '#F5E6C8', accent: '#D4AF37', label: '紅' },
+  { bg: '#1B3A5C',   border: '#C0C0C0', text: '#E8EEF4', accent: '#87CEEB', label: '紺' },
+  { bg: '#2E1A47',   border: '#D4AF37', text: '#F0E6D0', accent: '#DDA0DD', label: '紫' },
+  { bg: '#0D3B2E',   border: '#D4AF37', text: '#E8F5E8', accent: '#90EE90', label: '緑' },
+];
+
+// ── Setup ──
+$('start-btn').addEventListener('click', startCamera);
+$('uni-name').addEventListener('keydown', e => { if (e.key === 'Enter') startCamera(); });
+
+async function startCamera() {
+  universityName = $('uni-name').value.trim() || '○○大学';
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    $('camera').srcObject = stream;
+    $('setup-screen').style.display = 'none';
+    $('camera-screen').style.display = 'block';
+    requestAnimationFrame(drawLoop);
+  } catch (e) {
+    alert('カメラへのアクセスが必要です');
+  }
+}
+
+// ── Camera flip ──
+$('flip-btn').addEventListener('click', async () => {
+  facingMode = facingMode === 'environment' ? 'user' : 'environment';
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+    audio: false
+  });
+  $('camera').srcObject = stream;
+});
+
+// ── Back ──
+$('back-btn').addEventListener('click', () => {
+  if (stream) stream.getTracks().forEach(t => t.stop());
+  $('camera-screen').style.display = 'none';
+  $('setup-screen').style.display = 'flex';
+});
+
+// ── Size ──
+$('size-slider').addEventListener('input', e => {
+  kanbanScale = e.target.value / 100;
+});
+
+// ── Style ──
+$('style-btn').addEventListener('click', () => {
+  styleIndex = (styleIndex + 1) % styles.length;
+});
+
+// ── Drag mode ──
+$('move-btn').addEventListener('click', () => {
+  dragMode = !dragMode;
+  $('move-btn').style.background = dragMode ? 'rgba(240,208,96,0.5)' : 'rgba(255,255,255,0.2)';
+});
+
+// ── Touch / Mouse drag on overlay ──
+const overlayEl = $('overlay');
+overlayEl.style.pointerEvents = 'auto';
+
+function getRelPos(e) {
+  const touch = e.touches ? e.touches[0] : e;
+  const rect = overlayEl.getBoundingClientRect();
+  return { x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height };
+}
+
+overlayEl.addEventListener('touchstart', e => {
+  if (!dragMode) return;
+  isDragging = true;
+  const p = getRelPos(e);
+  kanbanX = p.x; kanbanY = p.y;
+  e.preventDefault();
+}, { passive: false });
+overlayEl.addEventListener('touchmove', e => {
+  if (!isDragging) return;
+  const p = getRelPos(e);
+  kanbanX = p.x; kanbanY = p.y;
+  e.preventDefault();
+}, { passive: false });
+overlayEl.addEventListener('touchend', () => { isDragging = false; });
+
+overlayEl.addEventListener('mousedown', e => {
+  if (!dragMode) return;
+  isDragging = true;
+  const p = getRelPos(e);
+  kanbanX = p.x; kanbanY = p.y;
+});
+window.addEventListener('mousemove', e => {
+  if (!isDragging) return;
+  const p = getRelPos(e);
+  kanbanX = Math.max(0, Math.min(1, p.x));
+  kanbanY = Math.max(0, Math.min(1, p.y));
+});
+window.addEventListener('mouseup', () => { isDragging = false; });
+
+// ── Draw Loop ──
+const canvas = $('overlay');
+const ctx = canvas.getContext('2d');
+
+function drawLoop() {
+  const w = canvas.clientWidth * devicePixelRatio;
+  const h = canvas.clientHeight * devicePixelRatio;
+  if (canvas.width !== w || canvas.height !== h) {
+    canvas.width = w;
+    canvas.height = h;
+  }
+  ctx.clearRect(0, 0, w, h);
+  drawKanban(ctx, w, h);
+  requestAnimationFrame(drawLoop);
+}
+
+function drawKanban(ctx, cw, ch) {
+  const s = styles[styleIndex];
+  const scale = kanbanScale;
+
+  // Kanban dimensions
+  const kw = cw * 0.75 * scale;
+  const kh = ch * 0.55 * scale;
+  const cx = cw * kanbanX;
+  const cy = ch * kanbanY;
+  const x = cx - kw / 2;
+  const y = cy - kh / 2;
+
+  const borderW = Math.max(4, kw * 0.025);
+  const innerBorder = Math.max(2, kw * 0.012);
+  const cornerR = Math.max(4, kw * 0.02);
+
+  ctx.save();
+
+  // Shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.35)';
+  ctx.shadowBlur = 30;
+  ctx.shadowOffsetY = 8;
+
+  // Outer frame
+  roundRect(ctx, x, y, kw, kh, cornerR);
+  ctx.fillStyle = s.border;
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  // Inner background
+  const inset = borderW;
+  roundRect(ctx, x + inset, y + inset, kw - inset * 2, kh - inset * 2, cornerR * 0.6);
+  ctx.fillStyle = s.bg;
+  ctx.fill();
+
+  // Inner decorative border
+  const inset2 = inset + innerBorder * 2;
+  roundRect(ctx, x + inset2, y + inset2, kw - inset2 * 2, kh - inset2 * 2, cornerR * 0.4);
+  ctx.strokeStyle = s.border;
+  ctx.lineWidth = innerBorder;
+  ctx.stroke();
+
+  // ── Text ──
+  const textArea = { x: x + inset2 + innerBorder, y: y + inset2 + innerBorder, w: kw - (inset2 + innerBorder) * 2, h: kh - (inset2 + innerBorder) * 2 };
+
+  // Year / ceremony type (top)
+  const year = new Date().getFullYear();
+  const topText = `令和${year - 2018}年度`;
+  const topSize = Math.max(14, textArea.h * 0.09);
+  ctx.font = `${topSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  ctx.fillStyle = s.accent;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'top';
+  ctx.fillText(topText, cx, textArea.y + textArea.h * 0.06);
+
+  // Main title
+  const mainSize = Math.max(20, textArea.h * 0.18);
+  ctx.font = `bold ${mainSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  ctx.fillStyle = s.text;
+  ctx.textBaseline = 'middle';
+  ctx.fillText('卒業証書授与式', cx, cy - textArea.h * 0.05);
+
+  // University name
+  const uniSize = Math.max(16, textArea.h * 0.13);
+  ctx.font = `bold ${uniSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  ctx.fillStyle = s.text;
+  ctx.fillText(universityName, cx, cy + textArea.h * 0.18);
+
+  // Decorative line
+  const lineY = cy + textArea.h * 0.32;
+  const lineW = textArea.w * 0.4;
+  ctx.beginPath();
+  ctx.moveTo(cx - lineW / 2, lineY);
+  ctx.lineTo(cx + lineW / 2, lineY);
+  ctx.strokeStyle = s.accent;
+  ctx.lineWidth = Math.max(1, innerBorder * 0.6);
+  ctx.stroke();
+
+  // Date
+  const now = new Date();
+  const months = now.getMonth() + 1;
+  const days = now.getDate();
+  const dateText = `${year}年${months}月${days}日`;
+  const dateSize = Math.max(12, textArea.h * 0.07);
+  ctx.font = `${dateSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  ctx.fillStyle = s.accent;
+  ctx.fillText(dateText, cx, cy + textArea.h * 0.40);
+
+  // Corner decorations (small flowers)
+  drawCornerDecor(ctx, x + inset2 + 12, y + inset2 + 12, Math.max(8, kw * 0.025), s.accent);
+  drawCornerDecor(ctx, x + kw - inset2 - 12, y + inset2 + 12, Math.max(8, kw * 0.025), s.accent);
+  drawCornerDecor(ctx, x + inset2 + 12, y + kh - inset2 - 12, Math.max(8, kw * 0.025), s.accent);
+  drawCornerDecor(ctx, x + kw - inset2 - 12, y + kh - inset2 - 12, Math.max(8, kw * 0.025), s.accent);
+
+  ctx.restore();
+}
+
+function drawCornerDecor(ctx, x, y, r, color) {
+  ctx.save();
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.6;
+  for (let i = 0; i < 5; i++) {
+    const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
+    ctx.beginPath();
+    ctx.ellipse(x + Math.cos(angle) * r * 0.5, y + Math.sin(angle) * r * 0.5, r * 0.45, r * 0.25, angle, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.beginPath();
+  ctx.arc(x, y, r * 0.2, 0, Math.PI * 2);
+  ctx.fillStyle = color;
+  ctx.globalAlpha = 0.8;
+  ctx.fill();
+  ctx.restore();
+}
+
+function roundRect(ctx, x, y, w, h, r) {
+  ctx.beginPath();
+  ctx.moveTo(x + r, y);
+  ctx.lineTo(x + w - r, y);
+  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r);
+  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h);
+  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r);
+  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.closePath();
+}
+
+// ── Shutter ──
+$('shutter-btn').addEventListener('click', capturePhoto);
+
+function capturePhoto() {
+  const flash = $('flash');
+  flash.classList.add('active');
+  setTimeout(() => flash.classList.remove('active'), 150);
+
+  const video = $('camera');
+  const captureCanvas = document.createElement('canvas');
+  const vw = video.videoWidth;
+  const vh = video.videoHeight;
+  captureCanvas.width = vw;
+  captureCanvas.height = vh;
+  const cctx = captureCanvas.getContext('2d');
+
+  // Mirror if front camera
+  if (facingMode === 'user') {
+    cctx.translate(vw, 0);
+    cctx.scale(-1, 1);
+  }
+  cctx.drawImage(video, 0, 0, vw, vh);
+
+  // Reset transform
+  if (facingMode === 'user') {
+    cctx.setTransform(1, 0, 0, 1, 0, 0);
+  }
+
+  // Draw kanban on capture
+  drawKanban(cctx, vw, vh);
+
+  const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
+  $('preview-img').src = dataUrl;
+  $('preview-modal').classList.add('show');
+}
+
+// ── Preview ──
+$('close-preview-btn').addEventListener('click', () => {
+  $('preview-modal').classList.remove('show');
+});
+
+$('save-btn').addEventListener('click', () => {
+  const a = document.createElement('a');
+  a.href = $('preview-img').src;
+  a.download = `graduation_${universityName}_${Date.now()}.jpg`;
+  a.click();
+  $('preview-modal').classList.remove('show');
+});
+</script>
+</body>
+</html>
