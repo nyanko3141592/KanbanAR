@@ -2,171 +2,312 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#000000">
   <title>卒業式AR看板カメラ</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-
+    :root {
+      --safe-bottom: env(safe-area-inset-bottom, 0px);
+      --safe-top: env(safe-area-inset-top, 0px);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
-      font-family: 'Hiragino Mincho ProN', 'Yu Mincho', serif;
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
       background: #000;
       overflow: hidden;
-      touch-action: manipulation;
-      -webkit-user-select: none;
-      user-select: none;
-      height: 100dvh;
-      width: 100vw;
+      touch-action: none;
+      -webkit-user-select: none; user-select: none;
+      height: 100dvh; width: 100vw;
+      position: fixed;
     }
 
-    /* ── Setup Screen ── */
+    /* ━━ Animations ━━ */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(20px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
+    @keyframes shimmer {
+      0% { background-position: -200% center; }
+      100% { background-position: 200% center; }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    @keyframes toast {
+      0% { opacity: 0; transform: translate(-50%, 10px); }
+      15%,85% { opacity: 1; transform: translate(-50%, 0); }
+      100% { opacity: 0; transform: translate(-50%, -10px); }
+    }
+
+    /* ━━ Setup Screen ━━ */
     #setup-screen {
       position: fixed; inset: 0;
-      background: linear-gradient(135deg, #1a0a2e 0%, #2d1b4e 40%, #4a2c6e 100%);
+      background: #0a0a0a;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      z-index: 100; gap: 24px; padding: 24px;
+      z-index: 100; gap: 0; padding: 32px 24px;
+      overflow-y: auto;
     }
-    #setup-screen h1 {
-      color: #f0d060;
-      font-size: 28px;
-      text-align: center;
-      text-shadow: 0 2px 8px rgba(240, 208, 96, 0.4);
+    .setup-content {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 28px;
+      max-width: 380px; width: 100%;
+      animation: fadeUp 0.6s ease-out;
     }
-    #setup-screen p {
-      color: #ccc; font-size: 14px; text-align: center;
+    .logo-area {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 12px;
     }
-    #setup-screen input {
-      font-family: inherit;
-      font-size: 20px; padding: 14px 20px;
-      border: 2px solid #f0d060; border-radius: 12px;
-      background: rgba(255,255,255,0.08); color: #fff;
-      text-align: center; width: 100%; max-width: 360px;
+    .logo-icon {
+      width: 72px; height: 72px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border-radius: 20px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 36px;
+      box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
+    }
+    .logo-area h1 {
+      font-size: 22px; font-weight: 700; color: #fff;
+      letter-spacing: -0.02em;
+    }
+    .logo-area p {
+      font-size: 14px; color: #71717a; text-align: center;
+      line-height: 1.5;
+    }
+
+    .input-group {
+      width: 100%; display: flex; flex-direction: column; gap: 8px;
+    }
+    .input-group label {
+      font-size: 13px; font-weight: 500; color: #a1a1aa;
+      padding-left: 4px;
+    }
+    .input-group input {
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
+      font-size: 17px; font-weight: 500;
+      padding: 16px 20px;
+      border: 1.5px solid #27272a; border-radius: 14px;
+      background: #18181b; color: #fff;
       outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
     }
-    #setup-screen input::placeholder { color: rgba(255,255,255,0.35); }
-    #setup-screen input:focus { border-color: #ffd700; background: rgba(255,255,255,0.12); }
+    .input-group input::placeholder { color: #52525b; }
+    .input-group input:focus {
+      border-color: #6366f1;
+      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    }
+
     #start-btn {
-      font-family: inherit;
-      font-size: 18px; padding: 14px 48px;
-      background: linear-gradient(135deg, #f0d060, #e8a030);
-      color: #1a0a2e; border: none; border-radius: 12px;
-      font-weight: bold; cursor: pointer;
-      box-shadow: 0 4px 20px rgba(240, 208, 96, 0.4);
-      transition: transform 0.15s;
+      width: 100%;
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
+      font-size: 17px; font-weight: 700;
+      padding: 16px 24px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff; border: none; border-radius: 14px;
+      cursor: pointer;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.3);
+      transition: transform 0.15s, box-shadow 0.15s;
+      position: relative; overflow: hidden;
     }
-    #start-btn:active { transform: scale(0.95); }
+    #start-btn::after {
+      content: '';
+      position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%);
+      background-size: 200% 100%;
+      animation: shimmer 3s infinite;
+    }
+    #start-btn:active { transform: scale(0.97); box-shadow: 0 2px 12px rgba(99,102,241,0.2); }
 
-    /* ── Camera Screen ── */
-    #camera-screen { display: none; position: fixed; inset: 0; }
+    .style-picker {
+      display: flex; gap: 10px; justify-content: center;
+      width: 100%;
+    }
+    .style-chip {
+      flex: 1; max-width: 80px;
+      padding: 10px 0;
+      border: 1.5px solid #27272a; border-radius: 12px;
+      background: #18181b; color: #a1a1aa;
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
+      font-size: 13px; font-weight: 500;
+      cursor: pointer; text-align: center;
+      transition: all 0.2s;
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+    }
+    .style-chip .dot {
+      width: 20px; height: 20px; border-radius: 50%;
+      border: 2px solid rgba(255,255,255,0.1);
+    }
+    .style-chip.active {
+      border-color: #6366f1;
+      background: rgba(99,102,241,0.1);
+      color: #e4e4e7;
+    }
 
+    /* ━━ Camera Screen ━━ */
+    #camera-screen {
+      display: none; position: fixed; inset: 0; background: #000;
+    }
     video#camera {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
       object-fit: cover;
     }
-
     canvas#overlay {
       position: absolute; inset: 0;
       width: 100%; height: 100%;
-      pointer-events: none;
     }
 
-    /* ── Controls ── */
-    #controls {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      display: flex; align-items: center; justify-content: center;
-      padding: 24px 16px 40px; gap: 24px;
-      background: linear-gradient(transparent, rgba(0,0,0,0.5));
-    }
-
-    #shutter-btn {
-      width: 72px; height: 72px; border-radius: 50%;
-      background: #fff; border: 4px solid rgba(255,255,255,0.6);
-      cursor: pointer; position: relative;
-      box-shadow: 0 2px 12px rgba(0,0,0,0.4);
-      transition: transform 0.1s;
-      flex-shrink: 0;
-    }
-    #shutter-btn::after {
-      content: ''; position: absolute;
-      inset: 4px; border-radius: 50%;
-      border: 2px solid rgba(0,0,0,0.1);
-    }
-    #shutter-btn:active { transform: scale(0.9); }
-
-    .side-btn {
-      width: 48px; height: 48px; border-radius: 50%;
-      background: rgba(255,255,255,0.2); border: none;
-      color: #fff; font-size: 22px; cursor: pointer;
-      backdrop-filter: blur(8px);
-      display: flex; align-items: center; justify-content: center;
-      flex-shrink: 0;
-    }
-    .side-btn:active { background: rgba(255,255,255,0.35); }
-
-    /* ── Top bar ── */
+    /* ━━ Top Bar (glassmorphism) ━━ */
     #top-bar {
       position: absolute; top: 0; left: 0; right: 0;
       display: flex; align-items: center; justify-content: space-between;
       padding: 12px 16px;
-      padding-top: max(12px, env(safe-area-inset-top));
-      background: linear-gradient(rgba(0,0,0,0.4), transparent);
+      padding-top: calc(var(--safe-top) + 12px);
+      z-index: 10;
     }
-    #top-bar .side-btn { width: 40px; height: 40px; font-size: 18px; }
+    .icon-btn {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff; font-size: 18px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      transition: transform 0.15s, background 0.15s;
+    }
+    .icon-btn:active { transform: scale(0.9); background: rgba(0,0,0,0.5); }
+    .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-    /* ── Size slider ── */
-    #size-control {
-      position: absolute; right: 12px; top: 50%; transform: translateY(-50%);
-      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    .top-right { display: flex; gap: 10px; }
+
+    /* ━━ Style indicator pill ━━ */
+    #style-pill {
+      position: absolute; top: calc(var(--safe-top) + 68px); left: 50%;
+      transform: translateX(-50%);
+      padding: 6px 16px; border-radius: 100px;
+      background: rgba(0,0,0,0.4);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff; font-size: 13px; font-weight: 500;
+      opacity: 0; transition: opacity 0.3s;
+      pointer-events: none; z-index: 10;
     }
-    #size-slider {
-      writing-mode: vertical-lr;
-      direction: rtl;
-      width: 36px; height: 160px;
-      accent-color: #f0d060;
-      opacity: 0.7;
+    #style-pill.show { opacity: 1; }
+
+    /* ━━ Bottom Controls ━━ */
+    #controls {
+      position: absolute; bottom: 0; left: 0; right: 0;
+      padding: 16px 24px;
+      padding-bottom: calc(var(--safe-bottom) + 20px);
+      display: flex; flex-direction: column; align-items: center; gap: 16px;
+      z-index: 10;
     }
-    #size-label {
-      color: #fff; font-size: 11px;
-      text-shadow: 0 1px 4px rgba(0,0,0,0.8);
+    #shutter-row {
+      display: flex; align-items: center; justify-content: center;
+      gap: 32px; width: 100%;
     }
 
-    /* ── Flash effect ── */
+    #shutter-btn {
+      width: 76px; height: 76px; border-radius: 50%;
+      background: #fff; border: none; cursor: pointer;
+      position: relative;
+      box-shadow: 0 0 0 4px rgba(255,255,255,0.25), 0 4px 20px rgba(0,0,0,0.4);
+      transition: transform 0.12s;
+      flex-shrink: 0;
+    }
+    #shutter-btn::after {
+      content: ''; position: absolute;
+      inset: 3px; border-radius: 50%;
+      border: 2.5px solid rgba(0,0,0,0.08);
+    }
+    #shutter-btn:active { transform: scale(0.88); }
+
+    .ctrl-btn {
+      width: 48px; height: 48px; border-radius: 50%;
+      background: rgba(0,0,0,0.3);
+      backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+      border: 1px solid rgba(255,255,255,0.08);
+      color: #fff; cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: transform 0.15s, background 0.15s;
+      flex-shrink: 0;
+    }
+    .ctrl-btn:active { transform: scale(0.9); }
+    .ctrl-btn svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ━━ Hint toast ━━ */
+    .toast {
+      position: fixed; bottom: calc(var(--safe-bottom) + 140px);
+      left: 50%; transform: translateX(-50%);
+      padding: 10px 20px; border-radius: 100px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255,255,255,0.06);
+      color: #e4e4e7; font-size: 13px; font-weight: 500;
+      white-space: nowrap; z-index: 20;
+      animation: toast 3s ease-in-out forwards;
+      pointer-events: none;
+    }
+
+    /* ━━ Flash ━━ */
     #flash {
       position: fixed; inset: 0;
       background: #fff; opacity: 0;
       pointer-events: none; z-index: 50;
-      transition: opacity 0.1s;
+      transition: opacity 0.15s;
     }
-    #flash.active { opacity: 1; transition: none; }
+    #flash.active { opacity: 0.8; transition: none; }
 
-    /* ── Preview modal ── */
+    /* ━━ Preview Modal ━━ */
     #preview-modal {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.9);
+      background: rgba(0,0,0,0.95);
       z-index: 80;
-      flex-direction: column; align-items: center; justify-content: center;
-      padding: 20px; gap: 16px;
+      flex-direction: column; align-items: center; justify-content: flex-end;
+      padding: 20px;
+      padding-bottom: calc(var(--safe-bottom) + 24px);
     }
     #preview-modal.show { display: flex; }
     #preview-img {
-      max-width: 100%; max-height: 70vh;
-      border-radius: 8px; object-fit: contain;
+      max-width: 100%; max-height: 65dvh;
+      border-radius: 16px; object-fit: contain;
+      box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+      position: absolute; top: 50%; left: 50%;
+      transform: translate(-50%, -55%);
     }
-    #preview-actions { display: flex; gap: 16px; }
+    #preview-actions {
+      display: flex; gap: 12px; width: 100%;
+      animation: slideIn 0.3s ease-out;
+    }
     #preview-actions button {
-      font-family: inherit;
-      font-size: 16px; padding: 12px 32px;
-      border: none; border-radius: 10px;
-      cursor: pointer; font-weight: bold;
+      flex: 1;
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
+      font-size: 16px; font-weight: 700;
+      padding: 16px 0;
+      border: none; border-radius: 14px;
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    #preview-actions button:active { transform: scale(0.97); }
+    #close-preview-btn {
+      background: #27272a; color: #e4e4e7;
     }
     #save-btn {
-      background: linear-gradient(135deg, #f0d060, #e8a030);
-      color: #1a0a2e;
-    }
-    #close-preview-btn {
-      background: rgba(255,255,255,0.2);
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
       color: #fff;
+      box-shadow: 0 4px 20px rgba(99,102,241,0.3);
+    }
+    #share-btn {
+      background: #059669; color: #fff;
+      box-shadow: 0 4px 20px rgba(5,150,105,0.25);
     }
   </style>
 </head>
@@ -174,10 +315,25 @@
 
   <!-- Setup Screen -->
   <div id="setup-screen">
-    <h1>🎓 卒業式AR看板カメラ</h1>
-    <p>大学名を入力してカメラを起動しよう</p>
-    <input id="uni-name" type="text" placeholder="例：東京大学" autocomplete="off">
-    <button id="start-btn">カメラを起動</button>
+    <div class="setup-content">
+      <div class="logo-area">
+        <div class="logo-icon">🎓</div>
+        <h1>卒業式AR看板カメラ</h1>
+        <p>カメラに卒業式の看板をARオーバーレイ<br>そのまま記念写真を撮影できます</p>
+      </div>
+
+      <div class="input-group">
+        <label>大学名・学校名</label>
+        <input id="uni-name" type="text" placeholder="例：東京大学" autocomplete="off" enterkeyhint="go">
+      </div>
+
+      <div class="input-group">
+        <label>看板スタイル</label>
+        <div class="style-picker" id="style-picker"></div>
+      </div>
+
+      <button id="start-btn">カメラを起動する</button>
+    </div>
   </div>
 
   <!-- Camera Screen -->
@@ -186,19 +342,31 @@
     <canvas id="overlay"></canvas>
 
     <div id="top-bar">
-      <button class="side-btn" id="back-btn">←</button>
-      <button class="side-btn" id="flip-btn">🔄</button>
+      <button class="icon-btn" id="back-btn">
+        <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+      </button>
+      <div class="top-right">
+        <button class="icon-btn" id="style-btn">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+        </button>
+        <button class="icon-btn" id="flip-btn">
+          <svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
+        </button>
+      </div>
     </div>
 
-    <div id="size-control">
-      <label id="size-label">サイズ</label>
-      <input type="range" id="size-slider" min="40" max="100" value="70">
-    </div>
+    <div id="style-pill"></div>
 
     <div id="controls">
-      <button class="side-btn" id="style-btn">🎨</button>
-      <button id="shutter-btn"></button>
-      <button class="side-btn" id="move-btn">✋</button>
+      <div id="shutter-row">
+        <button class="ctrl-btn" id="reset-btn" title="位置リセット">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+        </button>
+        <button id="shutter-btn"></button>
+        <button class="ctrl-btn" id="gallery-btn" title="最後の写真">
+          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        </button>
+      </div>
     </div>
   </div>
 
@@ -209,6 +377,7 @@
     <img id="preview-img">
     <div id="preview-actions">
       <button id="close-preview-btn">閉じる</button>
+      <button id="share-btn" style="display:none">共有</button>
       <button id="save-btn">保存</button>
     </div>
   </div>
@@ -221,18 +390,32 @@ let stream = null;
 let facingMode = 'environment';
 let universityName = '';
 let kanbanScale = 0.7;
-let kanbanX = 0.5;   // 0-1 relative
-let kanbanY = 0.55;
+let kanbanX = 0.5;
+let kanbanY = 0.5;
 let styleIndex = 0;
-let isDragging = false;
-let dragMode = false;
+let lastCaptureUrl = null;
+let pillTimer = null;
 
 const styles = [
-  { bg: '#8B0000',   border: '#D4AF37', text: '#F5E6C8', accent: '#D4AF37', label: '紅' },
-  { bg: '#1B3A5C',   border: '#C0C0C0', text: '#E8EEF4', accent: '#87CEEB', label: '紺' },
-  { bg: '#2E1A47',   border: '#D4AF37', text: '#F0E6D0', accent: '#DDA0DD', label: '紫' },
-  { bg: '#0D3B2E',   border: '#D4AF37', text: '#E8F5E8', accent: '#90EE90', label: '緑' },
+  { bg: '#7A1B1B', border: '#D4AF37', text: '#FFF5E0', accent: '#D4AF37', label: '紅', dot: '#8B0000' },
+  { bg: '#152B4F', border: '#94A3B8', text: '#E2E8F0', accent: '#7DD3FC', label: '紺', dot: '#1B3A5C' },
+  { bg: '#2E1A47', border: '#C084FC', text: '#F3E8FF', accent: '#C084FC', label: '紫', dot: '#2E1A47' },
+  { bg: '#0F3D2C', border: '#86EFAC', text: '#ECFDF5', accent: '#86EFAC', label: '翠', dot: '#0D3B2E' },
+  { bg: '#1C1917', border: '#D6D3D1', text: '#FAFAF9', accent: '#A8A29E', label: '墨', dot: '#1C1917' },
 ];
+
+// ── Build style chips ──
+const picker = $('style-picker');
+styles.forEach((s, i) => {
+  const chip = document.createElement('button');
+  chip.className = 'style-chip' + (i === 0 ? ' active' : '');
+  chip.innerHTML = `<span class="dot" style="background:${s.dot}"></span>${s.label}`;
+  chip.addEventListener('click', () => {
+    styleIndex = i;
+    picker.querySelectorAll('.style-chip').forEach((c, j) => c.classList.toggle('active', j === i));
+  });
+  picker.appendChild(chip);
+});
 
 // ── Setup ──
 $('start-btn').addEventListener('click', startCamera);
@@ -249,8 +432,9 @@ async function startCamera() {
     $('setup-screen').style.display = 'none';
     $('camera-screen').style.display = 'block';
     requestAnimationFrame(drawLoop);
-  } catch (e) {
-    alert('カメラへのアクセスが必要です');
+    showToast('ドラッグで移動 · ピンチで拡縮');
+  } catch {
+    alert('カメラへのアクセスを許可してください');
   }
 }
 
@@ -258,11 +442,13 @@ async function startCamera() {
 $('flip-btn').addEventListener('click', async () => {
   facingMode = facingMode === 'environment' ? 'user' : 'environment';
   if (stream) stream.getTracks().forEach(t => t.stop());
-  stream = await navigator.mediaDevices.getUserMedia({
-    video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-    audio: false
-  });
-  $('camera').srcObject = stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    $('camera').srcObject = stream;
+  } catch {}
 });
 
 // ── Back ──
@@ -272,60 +458,114 @@ $('back-btn').addEventListener('click', () => {
   $('setup-screen').style.display = 'flex';
 });
 
-// ── Size ──
-$('size-slider').addEventListener('input', e => {
-  kanbanScale = e.target.value / 100;
-});
-
-// ── Style ──
+// ── Style cycle ──
 $('style-btn').addEventListener('click', () => {
   styleIndex = (styleIndex + 1) % styles.length;
+  showPill(styles[styleIndex].label);
+  haptic();
 });
 
-// ── Drag mode ──
-$('move-btn').addEventListener('click', () => {
-  dragMode = !dragMode;
-  $('move-btn').style.background = dragMode ? 'rgba(240,208,96,0.5)' : 'rgba(255,255,255,0.2)';
+function showPill(text) {
+  const pill = $('style-pill');
+  pill.textContent = `スタイル：${text}`;
+  pill.classList.add('show');
+  clearTimeout(pillTimer);
+  pillTimer = setTimeout(() => pill.classList.remove('show'), 1500);
+}
+
+// ── Reset position ──
+$('reset-btn').addEventListener('click', () => {
+  kanbanScale = 0.7; kanbanX = 0.5; kanbanY = 0.5;
+  showToast('位置をリセットしました');
+  haptic();
 });
 
-// ── Touch / Mouse drag on overlay ──
+// ── Gallery (show last photo) ──
+$('gallery-btn').addEventListener('click', () => {
+  if (lastCaptureUrl) {
+    $('preview-img').src = lastCaptureUrl;
+    $('preview-modal').classList.add('show');
+  } else {
+    showToast('まだ写真がありません');
+  }
+});
+
+// ── Touch gestures (drag + pinch) ──
 const overlayEl = $('overlay');
-overlayEl.style.pointerEvents = 'auto';
+let touches = {};
+let lastPinchDist = 0;
 
-function getRelPos(e) {
-  const touch = e.touches ? e.touches[0] : e;
-  const rect = overlayEl.getBoundingClientRect();
-  return { x: (touch.clientX - rect.left) / rect.width, y: (touch.clientY - rect.top) / rect.height };
+function getTouchCenter(ts) {
+  let x = 0, y = 0;
+  for (const t of ts) { x += t.clientX; y += t.clientY; }
+  return { x: x / ts.length, y: y / ts.length };
+}
+
+function getTouchDist(ts) {
+  if (ts.length < 2) return 0;
+  const dx = ts[0].clientX - ts[1].clientX;
+  const dy = ts[0].clientY - ts[1].clientY;
+  return Math.sqrt(dx * dx + dy * dy);
 }
 
 overlayEl.addEventListener('touchstart', e => {
-  if (!dragMode) return;
-  isDragging = true;
-  const p = getRelPos(e);
-  kanbanX = p.x; kanbanY = p.y;
   e.preventDefault();
+  const ts = Array.from(e.touches);
+  if (ts.length === 2) {
+    lastPinchDist = getTouchDist(ts);
+  }
 }, { passive: false });
-overlayEl.addEventListener('touchmove', e => {
-  if (!isDragging) return;
-  const p = getRelPos(e);
-  kanbanX = p.x; kanbanY = p.y;
-  e.preventDefault();
-}, { passive: false });
-overlayEl.addEventListener('touchend', () => { isDragging = false; });
 
-overlayEl.addEventListener('mousedown', e => {
-  if (!dragMode) return;
-  isDragging = true;
-  const p = getRelPos(e);
-  kanbanX = p.x; kanbanY = p.y;
+overlayEl.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const ts = Array.from(e.touches);
+  const rect = overlayEl.getBoundingClientRect();
+
+  if (ts.length === 1) {
+    // Single finger drag
+    kanbanX = (ts[0].clientX - rect.left) / rect.width;
+    kanbanY = (ts[0].clientY - rect.top) / rect.height;
+    kanbanX = Math.max(0.1, Math.min(0.9, kanbanX));
+    kanbanY = Math.max(0.1, Math.min(0.9, kanbanY));
+  } else if (ts.length === 2) {
+    // Pinch to scale
+    const dist = getTouchDist(ts);
+    if (lastPinchDist > 0) {
+      const delta = (dist - lastPinchDist) / rect.width;
+      kanbanScale = Math.max(0.3, Math.min(1.2, kanbanScale + delta * 1.5));
+    }
+    lastPinchDist = dist;
+
+    // Two-finger drag
+    const center = getTouchCenter(ts);
+    kanbanX = (center.x - rect.left) / rect.width;
+    kanbanY = (center.y - rect.top) / rect.height;
+    kanbanX = Math.max(0.1, Math.min(0.9, kanbanX));
+    kanbanY = Math.max(0.1, Math.min(0.9, kanbanY));
+  }
+}, { passive: false });
+
+overlayEl.addEventListener('touchend', e => {
+  if (e.touches.length < 2) lastPinchDist = 0;
 });
-window.addEventListener('mousemove', e => {
-  if (!isDragging) return;
-  const p = getRelPos(e);
-  kanbanX = Math.max(0, Math.min(1, p.x));
-  kanbanY = Math.max(0, Math.min(1, p.y));
-});
-window.addEventListener('mouseup', () => { isDragging = false; });
+
+// Mouse fallback
+let mouseDown = false;
+overlayEl.addEventListener('mousedown', e => { mouseDown = true; moveKanbanMouse(e); });
+window.addEventListener('mousemove', e => { if (mouseDown) moveKanbanMouse(e); });
+window.addEventListener('mouseup', () => { mouseDown = false; });
+
+function moveKanbanMouse(e) {
+  const rect = overlayEl.getBoundingClientRect();
+  kanbanX = Math.max(0.1, Math.min(0.9, (e.clientX - rect.left) / rect.width));
+  kanbanY = Math.max(0.1, Math.min(0.9, (e.clientY - rect.top) / rect.height));
+}
+
+// Mouse wheel for scale on desktop
+overlayEl.addEventListener('wheel', e => {
+  e.preventDefault();
+  kanbanScale = Math.max(0.3, Math.min(1.2, kanbanScale - e.deltaY * 0.001));
+}, { passive: false });
 
 // ── Draw Loop ──
 const canvas = $('overlay');
@@ -335,8 +575,7 @@ function drawLoop() {
   const w = canvas.clientWidth * devicePixelRatio;
   const h = canvas.clientHeight * devicePixelRatio;
   if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w;
-    canvas.height = h;
+    canvas.width = w; canvas.height = h;
   }
   ctx.clearRect(0, 0, w, h);
   drawKanban(ctx, w, h);
@@ -346,114 +585,135 @@ function drawLoop() {
 function drawKanban(ctx, cw, ch) {
   const s = styles[styleIndex];
   const scale = kanbanScale;
-
-  // Kanban dimensions
-  const kw = cw * 0.75 * scale;
-  const kh = ch * 0.55 * scale;
+  const kw = cw * 0.78 * scale;
+  const kh = ch * 0.42 * scale;
   const cx = cw * kanbanX;
   const cy = ch * kanbanY;
   const x = cx - kw / 2;
   const y = cy - kh / 2;
 
-  const borderW = Math.max(4, kw * 0.025);
-  const innerBorder = Math.max(2, kw * 0.012);
-  const cornerR = Math.max(4, kw * 0.02);
+  const borderW = Math.max(3, kw * 0.02);
+  const innerB = Math.max(1.5, kw * 0.008);
+  const r = Math.max(3, kw * 0.015);
 
   ctx.save();
 
-  // Shadow
-  ctx.shadowColor = 'rgba(0,0,0,0.35)';
-  ctx.shadowBlur = 30;
-  ctx.shadowOffsetY = 8;
+  // Drop shadow
+  ctx.shadowColor = 'rgba(0,0,0,0.5)';
+  ctx.shadowBlur = 40 * scale;
+  ctx.shadowOffsetY = 12 * scale;
 
-  // Outer frame
-  roundRect(ctx, x, y, kw, kh, cornerR);
+  // Outer border
+  roundRect(ctx, x, y, kw, kh, r);
   ctx.fillStyle = s.border;
   ctx.fill();
   ctx.shadowColor = 'transparent';
 
-  // Inner background
-  const inset = borderW;
-  roundRect(ctx, x + inset, y + inset, kw - inset * 2, kh - inset * 2, cornerR * 0.6);
+  // Main bg
+  const ins = borderW;
+  roundRect(ctx, x + ins, y + ins, kw - ins * 2, kh - ins * 2, r * 0.7);
   ctx.fillStyle = s.bg;
   ctx.fill();
 
+  // Subtle texture overlay
+  ctx.globalAlpha = 0.04;
+  for (let i = 0; i < kh; i += 3) {
+    ctx.fillStyle = i % 6 === 0 ? '#fff' : '#000';
+    ctx.fillRect(x + ins, y + ins + i, kw - ins * 2, 1);
+  }
+  ctx.globalAlpha = 1;
+
   // Inner decorative border
-  const inset2 = inset + innerBorder * 2;
-  roundRect(ctx, x + inset2, y + inset2, kw - inset2 * 2, kh - inset2 * 2, cornerR * 0.4);
+  const ins2 = ins + innerB * 3;
+  roundRect(ctx, x + ins2, y + ins2, kw - ins2 * 2, kh - ins2 * 2, r * 0.5);
   ctx.strokeStyle = s.border;
-  ctx.lineWidth = innerBorder;
+  ctx.lineWidth = innerB;
+  ctx.globalAlpha = 0.5;
   ctx.stroke();
+  ctx.globalAlpha = 1;
 
   // ── Text ──
-  const textArea = { x: x + inset2 + innerBorder, y: y + inset2 + innerBorder, w: kw - (inset2 + innerBorder) * 2, h: kh - (inset2 + innerBorder) * 2 };
+  const ta = { x: x + ins2, y: y + ins2, w: kw - ins2 * 2, h: kh - ins2 * 2 };
+  const serif = "'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif";
 
-  // Year / ceremony type (top)
+  // Year
   const year = new Date().getFullYear();
-  const topText = `令和${year - 2018}年度`;
-  const topSize = Math.max(14, textArea.h * 0.09);
-  ctx.font = `${topSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  const reiwa = year - 2018;
+  const yearSize = Math.max(12, ta.h * 0.085);
+  ctx.font = `500 ${yearSize}px ${serif}`;
   ctx.fillStyle = s.accent;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'top';
-  ctx.fillText(topText, cx, textArea.y + textArea.h * 0.06);
+  ctx.globalAlpha = 0.85;
+  ctx.fillText(`令和${reiwa}年度`, cx, ta.y + ta.h * 0.08);
+  ctx.globalAlpha = 1;
 
   // Main title
-  const mainSize = Math.max(20, textArea.h * 0.18);
-  ctx.font = `bold ${mainSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  const mainSize = Math.max(18, ta.h * 0.2);
+  ctx.font = `bold ${mainSize}px ${serif}`;
   ctx.fillStyle = s.text;
   ctx.textBaseline = 'middle';
-  ctx.fillText('卒業証書授与式', cx, cy - textArea.h * 0.05);
+  ctx.fillText('卒業証書授与式', cx, cy - ta.h * 0.04);
 
   // University name
-  const uniSize = Math.max(16, textArea.h * 0.13);
-  ctx.font = `bold ${uniSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  const uniSize = Math.max(14, ta.h * 0.14);
+  ctx.font = `700 ${uniSize}px ${serif}`;
   ctx.fillStyle = s.text;
-  ctx.fillText(universityName, cx, cy + textArea.h * 0.18);
+  ctx.fillText(universityName, cx, cy + ta.h * 0.2);
 
   // Decorative line
-  const lineY = cy + textArea.h * 0.32;
-  const lineW = textArea.w * 0.4;
+  const lineY = cy + ta.h * 0.33;
+  const lineW = ta.w * 0.3;
+  const grad = ctx.createLinearGradient(cx - lineW / 2, 0, cx + lineW / 2, 0);
+  grad.addColorStop(0, 'transparent');
+  grad.addColorStop(0.2, s.accent);
+  grad.addColorStop(0.8, s.accent);
+  grad.addColorStop(1, 'transparent');
+  ctx.strokeStyle = grad;
+  ctx.lineWidth = Math.max(1, innerB * 0.6);
   ctx.beginPath();
   ctx.moveTo(cx - lineW / 2, lineY);
   ctx.lineTo(cx + lineW / 2, lineY);
-  ctx.strokeStyle = s.accent;
-  ctx.lineWidth = Math.max(1, innerBorder * 0.6);
   ctx.stroke();
 
   // Date
   const now = new Date();
-  const months = now.getMonth() + 1;
-  const days = now.getDate();
-  const dateText = `${year}年${months}月${days}日`;
-  const dateSize = Math.max(12, textArea.h * 0.07);
-  ctx.font = `${dateSize}px 'Hiragino Mincho ProN', 'Yu Mincho', serif`;
+  const dateSize = Math.max(10, ta.h * 0.065);
+  ctx.font = `400 ${dateSize}px ${serif}`;
   ctx.fillStyle = s.accent;
-  ctx.fillText(dateText, cx, cy + textArea.h * 0.40);
+  ctx.globalAlpha = 0.75;
+  ctx.fillText(`${year}年${now.getMonth()+1}月${now.getDate()}日`, cx, cy + ta.h * 0.42);
+  ctx.globalAlpha = 1;
 
-  // Corner decorations (small flowers)
-  drawCornerDecor(ctx, x + inset2 + 12, y + inset2 + 12, Math.max(8, kw * 0.025), s.accent);
-  drawCornerDecor(ctx, x + kw - inset2 - 12, y + inset2 + 12, Math.max(8, kw * 0.025), s.accent);
-  drawCornerDecor(ctx, x + inset2 + 12, y + kh - inset2 - 12, Math.max(8, kw * 0.025), s.accent);
-  drawCornerDecor(ctx, x + kw - inset2 - 12, y + kh - inset2 - 12, Math.max(8, kw * 0.025), s.accent);
+  // Corner ornaments
+  const ornSize = Math.max(6, kw * 0.018);
+  const ornOff = ins2 + ornSize * 1.5;
+  drawOrnament(ctx, x + ornOff, y + ornOff, ornSize, s.accent);
+  drawOrnament(ctx, x + kw - ornOff, y + ornOff, ornSize, s.accent);
+  drawOrnament(ctx, x + ornOff, y + kh - ornOff, ornSize, s.accent);
+  drawOrnament(ctx, x + kw - ornOff, y + kh - ornOff, ornSize, s.accent);
 
   ctx.restore();
 }
 
-function drawCornerDecor(ctx, x, y, r, color) {
+function drawOrnament(ctx, x, y, r, color) {
   ctx.save();
+  ctx.globalAlpha = 0.45;
+  ctx.strokeStyle = color;
+  ctx.lineWidth = Math.max(1, r * 0.2);
+  // Diamond shape
+  ctx.beginPath();
+  ctx.moveTo(x, y - r);
+  ctx.lineTo(x + r, y);
+  ctx.lineTo(x, y + r);
+  ctx.lineTo(x - r, y);
+  ctx.closePath();
+  ctx.stroke();
+  // Center dot
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.6;
-  for (let i = 0; i < 5; i++) {
-    const angle = (i / 5) * Math.PI * 2 - Math.PI / 2;
-    ctx.beginPath();
-    ctx.ellipse(x + Math.cos(angle) * r * 0.5, y + Math.sin(angle) * r * 0.5, r * 0.45, r * 0.25, angle, 0, Math.PI * 2);
-    ctx.fill();
-  }
   ctx.beginPath();
-  ctx.arc(x, y, r * 0.2, 0, Math.PI * 2);
-  ctx.fillStyle = color;
-  ctx.globalAlpha = 0.8;
+  ctx.arc(x, y, r * 0.25, 0, Math.PI * 2);
   ctx.fill();
   ctx.restore();
 }
@@ -461,14 +721,10 @@ function drawCornerDecor(ctx, x, y, r, color) {
 function roundRect(ctx, x, y, w, h, r) {
   ctx.beginPath();
   ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y);
-  ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r);
-  ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h);
-  ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r);
-  ctx.quadraticCurveTo(x, y, x + r, y);
+  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
   ctx.closePath();
 }
 
@@ -476,39 +732,34 @@ function roundRect(ctx, x, y, w, h, r) {
 $('shutter-btn').addEventListener('click', capturePhoto);
 
 function capturePhoto() {
+  haptic();
   const flash = $('flash');
   flash.classList.add('active');
-  setTimeout(() => flash.classList.remove('active'), 150);
+  setTimeout(() => flash.classList.remove('active'), 180);
 
   const video = $('camera');
-  const captureCanvas = document.createElement('canvas');
-  const vw = video.videoWidth;
-  const vh = video.videoHeight;
-  captureCanvas.width = vw;
-  captureCanvas.height = vh;
-  const cctx = captureCanvas.getContext('2d');
+  const cap = document.createElement('canvas');
+  const vw = video.videoWidth, vh = video.videoHeight;
+  cap.width = vw; cap.height = vh;
+  const cctx = cap.getContext('2d');
 
-  // Mirror if front camera
-  if (facingMode === 'user') {
-    cctx.translate(vw, 0);
-    cctx.scale(-1, 1);
-  }
+  if (facingMode === 'user') { cctx.translate(vw, 0); cctx.scale(-1, 1); }
   cctx.drawImage(video, 0, 0, vw, vh);
+  if (facingMode === 'user') { cctx.setTransform(1, 0, 0, 1, 0, 0); }
 
-  // Reset transform
-  if (facingMode === 'user') {
-    cctx.setTransform(1, 0, 0, 1, 0, 0);
-  }
-
-  // Draw kanban on capture
   drawKanban(cctx, vw, vh);
 
-  const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
-  $('preview-img').src = dataUrl;
+  lastCaptureUrl = cap.toDataURL('image/jpeg', 0.95);
+  $('preview-img').src = lastCaptureUrl;
   $('preview-modal').classList.add('show');
+
+  // Enable share button if supported
+  if (navigator.canShare) {
+    $('share-btn').style.display = 'block';
+  }
 }
 
-// ── Preview ──
+// ── Preview actions ──
 $('close-preview-btn').addEventListener('click', () => {
   $('preview-modal').classList.remove('show');
 });
@@ -516,10 +767,34 @@ $('close-preview-btn').addEventListener('click', () => {
 $('save-btn').addEventListener('click', () => {
   const a = document.createElement('a');
   a.href = $('preview-img').src;
-  a.download = `graduation_${universityName}_${Date.now()}.jpg`;
+  a.download = `卒業式_${universityName}_${Date.now()}.jpg`;
   a.click();
+  showToast('保存しました');
   $('preview-modal').classList.remove('show');
 });
+
+$('share-btn').addEventListener('click', async () => {
+  try {
+    const res = await fetch($('preview-img').src);
+    const blob = await res.blob();
+    const file = new File([blob], `卒業式_${universityName}.jpg`, { type: 'image/jpeg' });
+    await navigator.share({ files: [file], title: `${universityName} 卒業式` });
+    $('preview-modal').classList.remove('show');
+  } catch {}
+});
+
+// ── Utilities ──
+function haptic() {
+  if (navigator.vibrate) navigator.vibrate(10);
+}
+
+function showToast(text) {
+  const el = document.createElement('div');
+  el.className = 'toast';
+  el.textContent = text;
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 3200);
+}
 </script>
 </body>
 </html>
