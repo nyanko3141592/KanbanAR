@@ -10,6 +10,14 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&family=Noto+Serif+JP:wght@400;700&display=swap" rel="stylesheet">
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
   <style>
     :root {
       --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -18,42 +26,40 @@
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body {
       font-family: 'Noto Sans JP', system-ui, sans-serif;
-      background: #000;
-      overflow: hidden;
+      background: #000; overflow: hidden;
       touch-action: none;
       -webkit-user-select: none; user-select: none;
-      height: 100dvh; width: 100vw;
-      position: fixed;
+      height: 100dvh; width: 100vw; position: fixed;
     }
 
-    /* ━━ Animations ━━ */
     @keyframes fadeUp {
       from { opacity: 0; transform: translateY(20px); }
       to   { opacity: 1; transform: translateY(0); }
     }
-    @keyframes pulse { 0%,100% { transform: scale(1); } 50% { transform: scale(1.04); } }
     @keyframes shimmer {
       0% { background-position: -200% center; }
       100% { background-position: 200% center; }
-    }
-    @keyframes slideIn {
-      from { opacity: 0; transform: translateY(100%); }
-      to   { opacity: 1; transform: translateY(0); }
     }
     @keyframes toast {
       0% { opacity: 0; transform: translate(-50%, 10px); }
       15%,85% { opacity: 1; transform: translate(-50%, 0); }
       100% { opacity: 0; transform: translate(-50%, -10px); }
     }
+    @keyframes pulse-ring {
+      0% { transform: translate(-50%,-50%) scale(0.8); opacity: 0.6; }
+      100% { transform: translate(-50%,-50%) scale(1.6); opacity: 0; }
+    }
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(100%); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
 
-    /* ━━ Setup Screen ━━ */
+    /* ━━ Setup ━━ */
     #setup-screen {
-      position: fixed; inset: 0;
-      background: #0a0a0a;
+      position: fixed; inset: 0; background: #0a0a0a;
       display: flex; flex-direction: column;
       align-items: center; justify-content: center;
-      z-index: 100; gap: 0; padding: 32px 24px;
-      overflow-y: auto;
+      z-index: 100; padding: 32px 24px; overflow-y: auto;
     }
     .setup-content {
       display: flex; flex-direction: column;
@@ -61,10 +67,7 @@
       max-width: 380px; width: 100%;
       animation: fadeUp 0.6s ease-out;
     }
-    .logo-area {
-      display: flex; flex-direction: column;
-      align-items: center; gap: 12px;
-    }
+    .logo-area { display: flex; flex-direction: column; align-items: center; gap: 12px; }
     .logo-icon {
       width: 72px; height: 72px;
       background: linear-gradient(135deg, #6366f1, #8b5cf6);
@@ -73,138 +76,72 @@
       font-size: 36px;
       box-shadow: 0 8px 32px rgba(99, 102, 241, 0.3);
     }
-    .logo-area h1 {
-      font-size: 22px; font-weight: 700; color: #fff;
-      letter-spacing: -0.02em;
-    }
-    .logo-area p {
-      font-size: 14px; color: #71717a; text-align: center;
-      line-height: 1.5;
-    }
-
-    .input-group {
-      width: 100%; display: flex; flex-direction: column; gap: 8px;
-    }
-    .input-group label {
-      font-size: 13px; font-weight: 500; color: #a1a1aa;
-      padding-left: 4px;
-    }
+    .logo-area h1 { font-size: 22px; font-weight: 700; color: #fff; letter-spacing: -0.02em; }
+    .logo-area p { font-size: 14px; color: #71717a; text-align: center; line-height: 1.5; }
+    .input-group { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+    .input-group label { font-size: 13px; font-weight: 500; color: #a1a1aa; padding-left: 4px; }
     .input-group input {
       font-family: 'Noto Sans JP', system-ui, sans-serif;
-      font-size: 17px; font-weight: 500;
-      padding: 16px 20px;
+      font-size: 17px; font-weight: 500; padding: 16px 20px;
       border: 1.5px solid #27272a; border-radius: 14px;
-      background: #18181b; color: #fff;
-      outline: none;
+      background: #18181b; color: #fff; outline: none;
       transition: border-color 0.2s, box-shadow 0.2s;
     }
     .input-group input::placeholder { color: #52525b; }
-    .input-group input:focus {
-      border-color: #6366f1;
-      box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
-    }
-
-    #start-btn {
-      width: 100%;
-      font-family: 'Noto Sans JP', system-ui, sans-serif;
-      font-size: 17px; font-weight: 700;
-      padding: 16px 24px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: #fff; border: none; border-radius: 14px;
-      cursor: pointer;
-      box-shadow: 0 4px 24px rgba(99,102,241,0.3);
-      transition: transform 0.15s, box-shadow 0.15s;
-      position: relative; overflow: hidden;
-    }
-    #start-btn::after {
-      content: '';
-      position: absolute; inset: 0;
-      background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%);
-      background-size: 200% 100%;
-      animation: shimmer 3s infinite;
-    }
-    #start-btn:active { transform: scale(0.97); box-shadow: 0 2px 12px rgba(99,102,241,0.2); }
-
-    .style-picker {
-      display: flex; gap: 10px; justify-content: center;
-      width: 100%;
-    }
+    .input-group input:focus { border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.15); }
+    .style-picker { display: flex; gap: 10px; justify-content: center; width: 100%; }
     .style-chip {
-      flex: 1; max-width: 80px;
-      padding: 10px 0;
+      flex: 1; max-width: 72px; padding: 10px 0;
       border: 1.5px solid #27272a; border-radius: 12px;
       background: #18181b; color: #a1a1aa;
       font-family: 'Noto Sans JP', system-ui, sans-serif;
-      font-size: 13px; font-weight: 500;
-      cursor: pointer; text-align: center;
+      font-size: 13px; font-weight: 500; cursor: pointer; text-align: center;
       transition: all 0.2s;
-      display: flex; flex-direction: column;
-      align-items: center; gap: 4px;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
     }
-    .style-chip .dot {
-      width: 20px; height: 20px; border-radius: 50%;
-      border: 2px solid rgba(255,255,255,0.1);
+    .style-chip .dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.1); }
+    .style-chip.active { border-color: #6366f1; background: rgba(99,102,241,0.1); color: #e4e4e7; }
+    #start-btn {
+      width: 100%;
+      font-family: 'Noto Sans JP', system-ui, sans-serif;
+      font-size: 17px; font-weight: 700; padding: 16px 24px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      color: #fff; border: none; border-radius: 14px; cursor: pointer;
+      box-shadow: 0 4px 24px rgba(99,102,241,0.3);
+      transition: transform 0.15s; position: relative; overflow: hidden;
     }
-    .style-chip.active {
-      border-color: #6366f1;
-      background: rgba(99,102,241,0.1);
-      color: #e4e4e7;
+    #start-btn::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(90deg, transparent 30%, rgba(255,255,255,0.12) 50%, transparent 70%);
+      background-size: 200% 100%; animation: shimmer 3s infinite;
     }
+    #start-btn:active { transform: scale(0.97); }
+    .ar-note {
+      font-size: 12px; color: #52525b; text-align: center; line-height: 1.6;
+    }
+    .ar-note strong { color: #a1a1aa; }
 
-    /* ━━ Camera Screen ━━ */
-    #camera-screen {
-      display: none; position: fixed; inset: 0; background: #000;
-    }
-    video#camera {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-      object-fit: cover;
-    }
-    canvas#overlay {
-      position: absolute; inset: 0;
-      width: 100%; height: 100%;
-    }
+    /* ━━ AR Screen ━━ */
+    #ar-screen { display: none; position: fixed; inset: 0; }
+    #ar-canvas { width: 100%; height: 100%; display: block; }
 
-    /* ━━ Top Bar (glassmorphism) ━━ */
-    #top-bar {
-      position: absolute; top: 0; left: 0; right: 0;
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 12px 16px;
-      padding-top: calc(var(--safe-top) + 12px);
-      z-index: 10;
-    }
-    .icon-btn {
-      width: 44px; height: 44px; border-radius: 50%;
-      background: rgba(0,0,0,0.35);
-      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
-      border: 1px solid rgba(255,255,255,0.1);
-      color: #fff; font-size: 18px;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer;
-      transition: transform 0.15s, background 0.15s;
-    }
-    .icon-btn:active { transform: scale(0.9); background: rgba(0,0,0,0.5); }
-    .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-
-    .top-right { display: flex; gap: 10px; }
-
-    /* ━━ Style indicator pill ━━ */
-    #style-pill {
-      position: absolute; top: calc(var(--safe-top) + 68px); left: 50%;
-      transform: translateX(-50%);
-      padding: 6px 16px; border-radius: 100px;
-      background: rgba(0,0,0,0.4);
+    /* ━━ Reticle hint ━━ */
+    #reticle-hint {
+      position: fixed; top: calc(var(--safe-top) + 80px);
+      left: 50%; transform: translateX(-50%);
+      padding: 10px 22px; border-radius: 100px;
+      background: rgba(0,0,0,0.55);
       backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
       border: 1px solid rgba(255,255,255,0.08);
-      color: #fff; font-size: 13px; font-weight: 500;
-      opacity: 0; transition: opacity 0.3s;
-      pointer-events: none; z-index: 10;
+      color: #e4e4e7; font-size: 14px; font-weight: 500;
+      z-index: 20; pointer-events: none;
+      transition: opacity 0.4s;
     }
-    #style-pill.show { opacity: 1; }
+    #reticle-hint.hidden { opacity: 0; }
 
-    /* ━━ Bottom Controls ━━ */
-    #controls {
-      position: absolute; bottom: 0; left: 0; right: 0;
+    /* ━━ Controls ━━ */
+    #ar-controls {
+      position: fixed; bottom: 0; left: 0; right: 0;
       padding: 16px 24px;
       padding-bottom: calc(var(--safe-bottom) + 20px);
       display: flex; flex-direction: column; align-items: center; gap: 16px;
@@ -214,22 +151,17 @@
       display: flex; align-items: center; justify-content: center;
       gap: 32px; width: 100%;
     }
-
     #shutter-btn {
       width: 76px; height: 76px; border-radius: 50%;
-      background: #fff; border: none; cursor: pointer;
-      position: relative;
+      background: #fff; border: none; cursor: pointer; position: relative;
       box-shadow: 0 0 0 4px rgba(255,255,255,0.25), 0 4px 20px rgba(0,0,0,0.4);
-      transition: transform 0.12s;
-      flex-shrink: 0;
+      transition: transform 0.12s; flex-shrink: 0;
     }
     #shutter-btn::after {
-      content: ''; position: absolute;
-      inset: 3px; border-radius: 50%;
+      content: ''; position: absolute; inset: 3px; border-radius: 50%;
       border: 2.5px solid rgba(0,0,0,0.08);
     }
     #shutter-btn:active { transform: scale(0.88); }
-
     .ctrl-btn {
       width: 48px; height: 48px; border-radius: 50%;
       background: rgba(0,0,0,0.3);
@@ -237,13 +169,42 @@
       border: 1px solid rgba(255,255,255,0.08);
       color: #fff; cursor: pointer;
       display: flex; align-items: center; justify-content: center;
-      transition: transform 0.15s, background 0.15s;
-      flex-shrink: 0;
+      transition: transform 0.15s; flex-shrink: 0;
     }
     .ctrl-btn:active { transform: scale(0.9); }
-    .ctrl-btn svg { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .ctrl-btn svg {
+      width: 22px; height: 22px; fill: none; stroke: #fff;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+    #top-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 12px 16px; padding-top: calc(var(--safe-top) + 12px);
+      z-index: 10;
+    }
+    .icon-btn {
+      width: 44px; height: 44px; border-radius: 50%;
+      background: rgba(0,0,0,0.35);
+      backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255,255,255,0.1);
+      color: #fff; font-size: 18px;
+      display: flex; align-items: center; justify-content: center; cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .icon-btn:active { transform: scale(0.9); }
+    .icon-btn svg {
+      width: 20px; height: 20px; fill: none; stroke: #fff;
+      stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
 
-    /* ━━ Hint toast ━━ */
+    /* ━━ Flash ━━ */
+    #flash {
+      position: fixed; inset: 0; background: #fff; opacity: 0;
+      pointer-events: none; z-index: 50; transition: opacity 0.15s;
+    }
+    #flash.active { opacity: 0.8; transition: none; }
+
+    /* ━━ Toast ━━ */
     .toast {
       position: fixed; bottom: calc(var(--safe-bottom) + 140px);
       left: 50%; transform: translateX(-50%);
@@ -252,28 +213,17 @@
       backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
       border: 1px solid rgba(255,255,255,0.06);
       color: #e4e4e7; font-size: 13px; font-weight: 500;
-      white-space: nowrap; z-index: 20;
+      white-space: nowrap; z-index: 60;
       animation: toast 3s ease-in-out forwards;
       pointer-events: none;
     }
 
-    /* ━━ Flash ━━ */
-    #flash {
-      position: fixed; inset: 0;
-      background: #fff; opacity: 0;
-      pointer-events: none; z-index: 50;
-      transition: opacity 0.15s;
-    }
-    #flash.active { opacity: 0.8; transition: none; }
-
-    /* ━━ Preview Modal ━━ */
+    /* ━━ Preview ━━ */
     #preview-modal {
       display: none; position: fixed; inset: 0;
-      background: rgba(0,0,0,0.95);
-      z-index: 80;
+      background: rgba(0,0,0,0.95); z-index: 80;
       flex-direction: column; align-items: center; justify-content: flex-end;
-      padding: 20px;
-      padding-bottom: calc(var(--safe-bottom) + 24px);
+      padding: 20px; padding-bottom: calc(var(--safe-bottom) + 24px);
     }
     #preview-modal.show { display: flex; }
     #preview-img {
@@ -290,81 +240,92 @@
     #preview-actions button {
       flex: 1;
       font-family: 'Noto Sans JP', system-ui, sans-serif;
-      font-size: 16px; font-weight: 700;
-      padding: 16px 0;
-      border: none; border-radius: 14px;
-      cursor: pointer;
+      font-size: 16px; font-weight: 700; padding: 16px 0;
+      border: none; border-radius: 14px; cursor: pointer;
       transition: transform 0.15s;
     }
     #preview-actions button:active { transform: scale(0.97); }
-    #close-preview-btn {
-      background: #27272a; color: #e4e4e7;
-    }
+    #close-preview-btn { background: #27272a; color: #e4e4e7; }
     #save-btn {
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
-      color: #fff;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff;
       box-shadow: 0 4px 20px rgba(99,102,241,0.3);
     }
     #share-btn {
-      background: #059669; color: #fff;
+      background: #059669; color: #fff; display: none;
       box-shadow: 0 4px 20px rgba(5,150,105,0.25);
+    }
+
+    /* ━━ Fallback (non-AR) ━━ */
+    #fallback-video {
+      position: absolute; inset: 0;
+      width: 100%; height: 100%; object-fit: cover;
+      display: none;
+    }
+    #no-ar-banner {
+      display: none;
+      position: fixed; top: calc(var(--safe-top) + 12px);
+      left: 50%; transform: translateX(-50%);
+      padding: 8px 18px; border-radius: 100px;
+      background: rgba(234, 179, 8, 0.2);
+      border: 1px solid rgba(234, 179, 8, 0.3);
+      color: #fbbf24; font-size: 12px; font-weight: 500;
+      z-index: 20; white-space: nowrap;
     }
   </style>
 </head>
 <body>
 
-  <!-- Setup Screen -->
+  <!-- Setup -->
   <div id="setup-screen">
     <div class="setup-content">
       <div class="logo-area">
         <div class="logo-icon">🎓</div>
         <h1>卒業式AR看板カメラ</h1>
-        <p>カメラに卒業式の看板をARオーバーレイ<br>そのまま記念写真を撮影できます</p>
+        <p>現実の地面や床にAR立て看板を設置<br>そのまま記念写真を撮影できます</p>
       </div>
-
       <div class="input-group">
         <label>大学名・学校名</label>
         <input id="uni-name" type="text" placeholder="例：東京大学" autocomplete="off" enterkeyhint="go">
       </div>
-
       <div class="input-group">
         <label>看板スタイル</label>
         <div class="style-picker" id="style-picker"></div>
       </div>
-
-      <button id="start-btn">カメラを起動する</button>
+      <button id="start-btn">ARカメラを起動する</button>
+      <p class="ar-note">
+        <strong>Android Chrome</strong>推奨（WebXR対応）<br>
+        非対応ブラウザではカメラモードで動作します
+      </p>
     </div>
   </div>
 
-  <!-- Camera Screen -->
-  <div id="camera-screen">
-    <video id="camera" autoplay playsinline muted></video>
-    <canvas id="overlay"></canvas>
+  <!-- AR Screen -->
+  <div id="ar-screen">
+    <video id="fallback-video" autoplay playsinline muted></video>
+    <canvas id="ar-canvas"></canvas>
+    <div id="no-ar-banner">ARモード非対応 — カメラモードで動作中</div>
+
+    <div id="reticle-hint">平面を検出中… スマホをゆっくり動かしてください</div>
 
     <div id="top-bar">
       <button class="icon-btn" id="back-btn">
         <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
       </button>
-      <div class="top-right">
+      <div style="display:flex;gap:10px">
         <button class="icon-btn" id="style-btn">
           <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
-        </button>
-        <button class="icon-btn" id="flip-btn">
-          <svg viewBox="0 0 24 24"><path d="M16 3h5v5M4 20L21 3M21 16v5h-5M15 15l6 6M4 4l5 5"/></svg>
         </button>
       </div>
     </div>
 
-    <div id="style-pill"></div>
-
-    <div id="controls">
+    <div id="ar-controls">
       <div id="shutter-row">
-        <button class="ctrl-btn" id="reset-btn" title="位置リセット">
+        <button class="ctrl-btn" id="reset-btn" title="リセット">
           <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
         </button>
         <button id="shutter-btn"></button>
-        <button class="ctrl-btn" id="gallery-btn" title="最後の写真">
-          <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+        <button class="ctrl-btn" id="scale-btn" title="サイズ切替">
+          <svg viewBox="0 0 24 24"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
         </button>
       </div>
     </div>
@@ -372,29 +333,29 @@
 
   <div id="flash"></div>
 
-  <!-- Preview Modal -->
+  <!-- Preview -->
   <div id="preview-modal">
     <img id="preview-img">
     <div id="preview-actions">
       <button id="close-preview-btn">閉じる</button>
-      <button id="share-btn" style="display:none">共有</button>
+      <button id="share-btn">共有</button>
       <button id="save-btn">保存</button>
     </div>
   </div>
 
-<script>
+<script type="module">
+import * as THREE from 'three';
+
 const $ = id => document.getElementById(id);
 
-// ── State ──
-let stream = null;
-let facingMode = 'environment';
+// ── Config ──
 let universityName = '';
-let kanbanScale = 0.7;
-let kanbanX = 0.5;
-let kanbanY = 0.5;
 let styleIndex = 0;
-let lastCaptureUrl = null;
-let pillTimer = null;
+let kanbanGroup = null;
+let placed = false;
+let arMode = false;
+let scaleLevel = 1; // 0=small, 1=medium, 2=large
+const scaleSizes = [0.6, 1.0, 1.5];
 
 const styles = [
   { bg: '#7A1B1B', border: '#D4AF37', text: '#FFF5E0', accent: '#D4AF37', label: '紅', dot: '#8B0000' },
@@ -417,299 +378,411 @@ styles.forEach((s, i) => {
   picker.appendChild(chip);
 });
 
-// ── Setup ──
-$('start-btn').addEventListener('click', startCamera);
-$('uni-name').addEventListener('keydown', e => { if (e.key === 'Enter') startCamera(); });
+// ── Three.js globals ──
+let renderer, scene, camera;
+let xrSession = null;
+let xrRefSpace = null;
+let xrHitTestSource = null;
+let reticle = null;
+let fallbackStream = null;
 
-async function startCamera() {
+// ── Setup events ──
+$('start-btn').addEventListener('click', startAR);
+$('uni-name').addEventListener('keydown', e => { if (e.key === 'Enter') startAR(); });
+
+async function startAR() {
   universityName = $('uni-name').value.trim() || '○○大学';
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
-    });
-    $('camera').srcObject = stream;
-    $('setup-screen').style.display = 'none';
-    $('camera-screen').style.display = 'block';
-    requestAnimationFrame(drawLoop);
-    showToast('ドラッグで移動 · ピンチで拡縮');
-  } catch {
-    alert('カメラへのアクセスを許可してください');
+  $('setup-screen').style.display = 'none';
+  $('ar-screen').style.display = 'block';
+
+  initThree();
+
+  // Try WebXR
+  if (navigator.xr) {
+    try {
+      const supported = await navigator.xr.isSessionSupported('immersive-ar');
+      if (supported) {
+        await startWebXR();
+        return;
+      }
+    } catch {}
+  }
+
+  // Fallback: camera + 3D overlay
+  startFallbackMode();
+}
+
+function initThree() {
+  const canvas = $('ar-canvas');
+  renderer = new THREE.WebGLRenderer({ canvas, alpha: true, antialias: true, preserveDrawingBuffer: true });
+  renderer.setPixelRatio(window.devicePixelRatio);
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.outputColorSpace = THREE.SRGBColorSpace;
+  renderer.toneMapping = THREE.ACESFilmicToneMapping;
+  renderer.toneMappingExposure = 1.0;
+
+  scene = new THREE.Scene();
+  camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 100);
+
+  // Lighting
+  const ambient = new THREE.AmbientLight(0xffffff, 0.7);
+  scene.add(ambient);
+  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
+  dirLight.position.set(2, 5, 3);
+  dirLight.castShadow = true;
+  scene.add(dirLight);
+  const hemi = new THREE.HemisphereLight(0xffeedd, 0x444466, 0.4);
+  scene.add(hemi);
+
+  // Reticle (ring on detected plane)
+  const ringGeo = new THREE.RingGeometry(0.08, 0.1, 32).rotateX(-Math.PI / 2);
+  const ringMat = new THREE.MeshBasicMaterial({ color: 0x6366f1, transparent: true, opacity: 0.7 });
+  reticle = new THREE.Mesh(ringGeo, ringMat);
+  reticle.visible = false;
+  scene.add(reticle);
+}
+
+// ━━ WebXR Mode ━━
+async function startWebXR() {
+  arMode = true;
+  renderer.xr.enabled = true;
+
+  xrSession = await navigator.xr.requestSession('immersive-ar', {
+    requiredFeatures: ['hit-test'],
+    optionalFeatures: ['dom-overlay'],
+    domOverlay: { root: $('ar-screen') }
+  });
+
+  renderer.xr.setReferenceSpaceType('local');
+  await renderer.xr.setSession(xrSession);
+
+  xrRefSpace = await xrSession.requestReferenceSpace('local');
+  const viewerSpace = await xrSession.requestReferenceSpace('viewer');
+  xrHitTestSource = await xrSession.requestHitTestSource({ space: viewerSpace });
+
+  xrSession.addEventListener('end', () => {
+    arMode = false;
+    xrSession = null;
+    xrHitTestSource = null;
+  });
+
+  // Tap to place
+  xrSession.addEventListener('select', onXRSelect);
+
+  renderer.setAnimationLoop(onXRFrame);
+}
+
+function onXRSelect() {
+  if (reticle.visible && !placed) {
+    placeKanban(reticle.position.clone(), reticle.quaternion.clone());
+    placed = true;
+    $('reticle-hint').classList.add('hidden');
+    showToast('看板を設置しました！ タップで再配置');
+  } else if (reticle.visible && placed) {
+    // Reposition
+    kanbanGroup.position.copy(reticle.position);
+    const euler = new THREE.Euler().setFromQuaternion(reticle.quaternion);
+    kanbanGroup.rotation.y = euler.y;
+    haptic();
   }
 }
 
-// ── Camera flip ──
-$('flip-btn').addEventListener('click', async () => {
-  facingMode = facingMode === 'environment' ? 'user' : 'environment';
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode, width: { ideal: 1920 }, height: { ideal: 1080 } },
-      audio: false
-    });
-    $('camera').srcObject = stream;
-  } catch {}
-});
+function onXRFrame(time, frame) {
+  if (!xrHitTestSource || !frame) return;
 
-// ── Back ──
-$('back-btn').addEventListener('click', () => {
-  if (stream) stream.getTracks().forEach(t => t.stop());
-  $('camera-screen').style.display = 'none';
-  $('setup-screen').style.display = 'flex';
-});
+  const results = frame.getHitTestResults(xrHitTestSource);
+  if (results.length > 0) {
+    const hit = results[0];
+    const pose = hit.getPose(xrRefSpace);
+    if (pose) {
+      reticle.visible = true;
+      reticle.matrix.fromArray(pose.transform.matrix);
+      reticle.matrix.decompose(reticle.position, reticle.quaternion, reticle.scale);
 
-// ── Style cycle ──
-$('style-btn').addEventListener('click', () => {
-  styleIndex = (styleIndex + 1) % styles.length;
-  showPill(styles[styleIndex].label);
-  haptic();
-});
-
-function showPill(text) {
-  const pill = $('style-pill');
-  pill.textContent = `スタイル：${text}`;
-  pill.classList.add('show');
-  clearTimeout(pillTimer);
-  pillTimer = setTimeout(() => pill.classList.remove('show'), 1500);
-}
-
-// ── Reset position ──
-$('reset-btn').addEventListener('click', () => {
-  kanbanScale = 0.7; kanbanX = 0.5; kanbanY = 0.5;
-  showToast('位置をリセットしました');
-  haptic();
-});
-
-// ── Gallery (show last photo) ──
-$('gallery-btn').addEventListener('click', () => {
-  if (lastCaptureUrl) {
-    $('preview-img').src = lastCaptureUrl;
-    $('preview-modal').classList.add('show');
-  } else {
-    showToast('まだ写真がありません');
-  }
-});
-
-// ── Touch gestures (drag + pinch) ──
-const overlayEl = $('overlay');
-let touches = {};
-let lastPinchDist = 0;
-
-function getTouchCenter(ts) {
-  let x = 0, y = 0;
-  for (const t of ts) { x += t.clientX; y += t.clientY; }
-  return { x: x / ts.length, y: y / ts.length };
-}
-
-function getTouchDist(ts) {
-  if (ts.length < 2) return 0;
-  const dx = ts[0].clientX - ts[1].clientX;
-  const dy = ts[0].clientY - ts[1].clientY;
-  return Math.sqrt(dx * dx + dy * dy);
-}
-
-overlayEl.addEventListener('touchstart', e => {
-  e.preventDefault();
-  const ts = Array.from(e.touches);
-  if (ts.length === 2) {
-    lastPinchDist = getTouchDist(ts);
-  }
-}, { passive: false });
-
-overlayEl.addEventListener('touchmove', e => {
-  e.preventDefault();
-  const ts = Array.from(e.touches);
-  const rect = overlayEl.getBoundingClientRect();
-
-  if (ts.length === 1) {
-    // Single finger drag
-    kanbanX = (ts[0].clientX - rect.left) / rect.width;
-    kanbanY = (ts[0].clientY - rect.top) / rect.height;
-    kanbanX = Math.max(0.1, Math.min(0.9, kanbanX));
-    kanbanY = Math.max(0.1, Math.min(0.9, kanbanY));
-  } else if (ts.length === 2) {
-    // Pinch to scale
-    const dist = getTouchDist(ts);
-    if (lastPinchDist > 0) {
-      const delta = (dist - lastPinchDist) / rect.width;
-      kanbanScale = Math.max(0.3, Math.min(1.2, kanbanScale + delta * 1.5));
+      if (!placed) {
+        $('reticle-hint').textContent = 'タップして看板を設置';
+      }
     }
-    lastPinchDist = dist;
-
-    // Two-finger drag
-    const center = getTouchCenter(ts);
-    kanbanX = (center.x - rect.left) / rect.width;
-    kanbanY = (center.y - rect.top) / rect.height;
-    kanbanX = Math.max(0.1, Math.min(0.9, kanbanX));
-    kanbanY = Math.max(0.1, Math.min(0.9, kanbanY));
+  } else {
+    if (!placed) {
+      reticle.visible = false;
+      $('reticle-hint').textContent = '平面を検出中… ゆっくり動かしてください';
+    }
   }
-}, { passive: false });
 
-overlayEl.addEventListener('touchend', e => {
-  if (e.touches.length < 2) lastPinchDist = 0;
-});
-
-// Mouse fallback
-let mouseDown = false;
-overlayEl.addEventListener('mousedown', e => { mouseDown = true; moveKanbanMouse(e); });
-window.addEventListener('mousemove', e => { if (mouseDown) moveKanbanMouse(e); });
-window.addEventListener('mouseup', () => { mouseDown = false; });
-
-function moveKanbanMouse(e) {
-  const rect = overlayEl.getBoundingClientRect();
-  kanbanX = Math.max(0.1, Math.min(0.9, (e.clientX - rect.left) / rect.width));
-  kanbanY = Math.max(0.1, Math.min(0.9, (e.clientY - rect.top) / rect.height));
+  renderer.render(scene, camera);
 }
 
-// Mouse wheel for scale on desktop
-overlayEl.addEventListener('wheel', e => {
-  e.preventDefault();
-  kanbanScale = Math.max(0.3, Math.min(1.2, kanbanScale - e.deltaY * 0.001));
-}, { passive: false });
+// ━━ Fallback (non-AR) ━━
+async function startFallbackMode() {
+  arMode = false;
+  $('no-ar-banner').style.display = 'block';
+  $('reticle-hint').classList.add('hidden');
 
-// ── Draw Loop ──
-const canvas = $('overlay');
-const ctx = canvas.getContext('2d');
-
-function drawLoop() {
-  const w = canvas.clientWidth * devicePixelRatio;
-  const h = canvas.clientHeight * devicePixelRatio;
-  if (canvas.width !== w || canvas.height !== h) {
-    canvas.width = w; canvas.height = h;
+  try {
+    fallbackStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+      audio: false
+    });
+    const video = $('fallback-video');
+    video.srcObject = fallbackStream;
+    video.style.display = 'block';
+  } catch {
+    showToast('カメラにアクセスできません');
   }
-  ctx.clearRect(0, 0, w, h);
-  drawKanban(ctx, w, h);
-  requestAnimationFrame(drawLoop);
+
+  camera.position.set(0, 1.2, 2.5);
+  camera.lookAt(0, 0.6, 0);
+  renderer.setClearColor(0x000000, 0);
+
+  placeKanban(new THREE.Vector3(0, 0, 0), new THREE.Quaternion());
+  placed = true;
+
+  // Touch to rotate / pinch to scale in fallback
+  let lastTouch = null;
+  let lastPinchDist = 0;
+  const canvas = $('ar-canvas');
+
+  canvas.addEventListener('touchstart', e => {
+    if (e.touches.length === 1) lastTouch = e.touches[0].clientX;
+    if (e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      lastPinchDist = Math.sqrt(dx*dx + dy*dy);
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener('touchmove', e => {
+    if (e.touches.length === 1 && lastTouch !== null && kanbanGroup) {
+      const dx = e.touches[0].clientX - lastTouch;
+      kanbanGroup.rotation.y += dx * 0.008;
+      lastTouch = e.touches[0].clientX;
+    }
+    if (e.touches.length === 2 && kanbanGroup) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (lastPinchDist > 0) {
+        const delta = (dist - lastPinchDist) * 0.005;
+        const s = kanbanGroup.scale.x;
+        const ns = Math.max(0.3, Math.min(2.5, s + delta));
+        kanbanGroup.scale.setScalar(ns);
+      }
+      lastPinchDist = dist;
+    }
+    e.preventDefault();
+  }, { passive: false });
+
+  canvas.addEventListener('touchend', e => {
+    if (e.touches.length < 2) lastPinchDist = 0;
+    if (e.touches.length < 1) lastTouch = null;
+  });
+
+  // Mouse drag
+  let mouseDown = false;
+  canvas.addEventListener('mousedown', () => { mouseDown = true; });
+  window.addEventListener('mouseup', () => { mouseDown = false; });
+  window.addEventListener('mousemove', e => {
+    if (mouseDown && kanbanGroup) kanbanGroup.rotation.y += e.movementX * 0.008;
+  });
+  canvas.addEventListener('wheel', e => {
+    if (!kanbanGroup) return;
+    const s = kanbanGroup.scale.x;
+    kanbanGroup.scale.setScalar(Math.max(0.3, Math.min(2.5, s - e.deltaY * 0.002)));
+    e.preventDefault();
+  }, { passive: false });
+
+  function fallbackLoop() {
+    renderer.render(scene, camera);
+    requestAnimationFrame(fallbackLoop);
+  }
+  fallbackLoop();
 }
 
-function drawKanban(ctx, cw, ch) {
+// ━━ Build 3D Standing Signboard ━━
+function placeKanban(position, quaternion) {
+  if (kanbanGroup) scene.remove(kanbanGroup);
+  kanbanGroup = new THREE.Group();
+
+  const s = scaleSizes[scaleLevel];
+
+  // Board dimensions (meters)
+  const boardW = 1.2 * s;
+  const boardH = 0.8 * s;
+  const boardD = 0.025 * s;
+  const legH = 0.5 * s;
+  const legR = 0.018 * s;
+
+  // ── Board (box with rounded feel) ──
+  const boardGeo = new THREE.BoxGeometry(boardW, boardH, boardD, 1, 1, 1);
+  const boardTexture = createBoardTexture();
+
+  const boardMats = [
+    new THREE.MeshStandardMaterial({ color: 0x5C3A1E, roughness: 0.7 }), // right
+    new THREE.MeshStandardMaterial({ color: 0x5C3A1E, roughness: 0.7 }), // left
+    new THREE.MeshStandardMaterial({ color: 0x5C3A1E, roughness: 0.7 }), // top
+    new THREE.MeshStandardMaterial({ color: 0x5C3A1E, roughness: 0.7 }), // bottom
+    new THREE.MeshStandardMaterial({ map: boardTexture, roughness: 0.35, metalness: 0.05 }), // front
+    new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.8 }), // back
+  ];
+
+  const board = new THREE.Mesh(boardGeo, boardMats);
+  board.position.y = legH + boardH / 2;
+  board.castShadow = true;
+  kanbanGroup.add(board);
+
+  // ── Wooden frame around the board ──
+  const frameMat = new THREE.MeshStandardMaterial({ color: 0x8B6914, roughness: 0.5, metalness: 0.15 });
+  const frameW = 0.03 * s;
+
+  // Top frame
+  const topFrame = new THREE.Mesh(new THREE.BoxGeometry(boardW + frameW * 2, frameW, boardD + 0.01), frameMat);
+  topFrame.position.y = legH + boardH + frameW / 2;
+  kanbanGroup.add(topFrame);
+
+  // Bottom frame
+  const botFrame = topFrame.clone();
+  botFrame.position.y = legH - frameW / 2;
+  kanbanGroup.add(botFrame);
+
+  // Left frame
+  const sideFrame = new THREE.Mesh(new THREE.BoxGeometry(frameW, boardH + frameW * 2, boardD + 0.01), frameMat);
+  sideFrame.position.set(-boardW / 2 - frameW / 2, legH + boardH / 2, 0);
+  kanbanGroup.add(sideFrame);
+
+  // Right frame
+  const rightFrame = sideFrame.clone();
+  rightFrame.position.x = boardW / 2 + frameW / 2;
+  kanbanGroup.add(rightFrame);
+
+  // ── Legs (A-frame easel) ──
+  const legMat = new THREE.MeshStandardMaterial({ color: 0x6B4226, roughness: 0.6 });
+
+  // Front left leg
+  const legGeo = new THREE.CylinderGeometry(legR, legR * 1.1, legH + 0.05, 8);
+  const legFL = new THREE.Mesh(legGeo, legMat);
+  legFL.position.set(-boardW * 0.35, legH / 2 - 0.025, boardD / 2);
+  legFL.castShadow = true;
+  kanbanGroup.add(legFL);
+
+  // Front right leg
+  const legFR = legFL.clone();
+  legFR.position.x = boardW * 0.35;
+  kanbanGroup.add(legFR);
+
+  // Back support leg (angled)
+  const backLegLen = legH * 1.1;
+  const backLeg = new THREE.Mesh(
+    new THREE.CylinderGeometry(legR * 0.8, legR * 1.0, backLegLen, 8),
+    legMat
+  );
+  backLeg.position.set(0, backLegLen / 2 * Math.cos(0.35) - 0.02, -backLegLen / 2 * Math.sin(0.35) - boardD / 2);
+  backLeg.rotation.x = 0.35;
+  backLeg.castShadow = true;
+  kanbanGroup.add(backLeg);
+
+  // ── Place in scene ──
+  kanbanGroup.position.copy(position);
+  if (arMode) {
+    const euler = new THREE.Euler().setFromQuaternion(quaternion);
+    kanbanGroup.rotation.y = euler.y;
+  }
+
+  scene.add(kanbanGroup);
+  haptic();
+}
+
+// ━━ Board Texture (Canvas 2D → Three.js Texture) ━━
+function createBoardTexture() {
+  const w = 1024, h = 680;
+  const c = document.createElement('canvas');
+  c.width = w; c.height = h;
+  const ctx = c.getContext('2d');
   const s = styles[styleIndex];
-  const scale = kanbanScale;
-  const kw = cw * 0.78 * scale;
-  const kh = ch * 0.42 * scale;
-  const cx = cw * kanbanX;
-  const cy = ch * kanbanY;
-  const x = cx - kw / 2;
-  const y = cy - kh / 2;
+  const serif = "'Noto Serif JP', 'Hiragino Mincho ProN', serif";
 
-  const borderW = Math.max(3, kw * 0.02);
-  const innerB = Math.max(1.5, kw * 0.008);
-  const r = Math.max(3, kw * 0.015);
-
-  ctx.save();
-
-  // Drop shadow
-  ctx.shadowColor = 'rgba(0,0,0,0.5)';
-  ctx.shadowBlur = 40 * scale;
-  ctx.shadowOffsetY = 12 * scale;
-
-  // Outer border
-  roundRect(ctx, x, y, kw, kh, r);
-  ctx.fillStyle = s.border;
-  ctx.fill();
-  ctx.shadowColor = 'transparent';
-
-  // Main bg
-  const ins = borderW;
-  roundRect(ctx, x + ins, y + ins, kw - ins * 2, kh - ins * 2, r * 0.7);
+  // Background
   ctx.fillStyle = s.bg;
-  ctx.fill();
+  ctx.fillRect(0, 0, w, h);
 
-  // Subtle texture overlay
-  ctx.globalAlpha = 0.04;
-  for (let i = 0; i < kh; i += 3) {
-    ctx.fillStyle = i % 6 === 0 ? '#fff' : '#000';
-    ctx.fillRect(x + ins, y + ins + i, kw - ins * 2, 1);
+  // Subtle texture
+  ctx.globalAlpha = 0.03;
+  for (let i = 0; i < h; i += 2) {
+    ctx.fillStyle = i % 4 === 0 ? '#fff' : '#000';
+    ctx.fillRect(0, i, w, 1);
   }
   ctx.globalAlpha = 1;
 
-  // Inner decorative border
-  const ins2 = ins + innerB * 3;
-  roundRect(ctx, x + ins2, y + ins2, kw - ins2 * 2, kh - ins2 * 2, r * 0.5);
+  // Inner border
+  const m = 28;
   ctx.strokeStyle = s.border;
-  ctx.lineWidth = innerB;
+  ctx.lineWidth = 3;
   ctx.globalAlpha = 0.5;
-  ctx.stroke();
+  ctx.strokeRect(m, m, w - m * 2, h - m * 2);
   ctx.globalAlpha = 1;
-
-  // ── Text ──
-  const ta = { x: x + ins2, y: y + ins2, w: kw - ins2 * 2, h: kh - ins2 * 2 };
-  const serif = "'Noto Serif JP', 'Hiragino Mincho ProN', 'Yu Mincho', serif";
 
   // Year
   const year = new Date().getFullYear();
   const reiwa = year - 2018;
-  const yearSize = Math.max(12, ta.h * 0.085);
-  ctx.font = `500 ${yearSize}px ${serif}`;
+  ctx.font = `500 32px ${serif}`;
   ctx.fillStyle = s.accent;
   ctx.textAlign = 'center';
-  ctx.textBaseline = 'top';
   ctx.globalAlpha = 0.85;
-  ctx.fillText(`令和${reiwa}年度`, cx, ta.y + ta.h * 0.08);
+  ctx.fillText(`令和${reiwa}年度`, w / 2, 100);
   ctx.globalAlpha = 1;
 
   // Main title
-  const mainSize = Math.max(18, ta.h * 0.2);
-  ctx.font = `bold ${mainSize}px ${serif}`;
+  ctx.font = `bold 72px ${serif}`;
   ctx.fillStyle = s.text;
-  ctx.textBaseline = 'middle';
-  ctx.fillText('卒業証書授与式', cx, cy - ta.h * 0.04);
+  ctx.fillText('卒業証書授与式', w / 2, h * 0.44);
 
-  // University name
-  const uniSize = Math.max(14, ta.h * 0.14);
-  ctx.font = `700 ${uniSize}px ${serif}`;
-  ctx.fillStyle = s.text;
-  ctx.fillText(universityName, cx, cy + ta.h * 0.2);
+  // University
+  ctx.font = `700 52px ${serif}`;
+  ctx.fillText(universityName, w / 2, h * 0.62);
 
   // Decorative line
-  const lineY = cy + ta.h * 0.33;
-  const lineW = ta.w * 0.3;
-  const grad = ctx.createLinearGradient(cx - lineW / 2, 0, cx + lineW / 2, 0);
+  const grad = ctx.createLinearGradient(w * 0.3, 0, w * 0.7, 0);
   grad.addColorStop(0, 'transparent');
-  grad.addColorStop(0.2, s.accent);
-  grad.addColorStop(0.8, s.accent);
+  grad.addColorStop(0.15, s.accent);
+  grad.addColorStop(0.85, s.accent);
   grad.addColorStop(1, 'transparent');
   ctx.strokeStyle = grad;
-  ctx.lineWidth = Math.max(1, innerB * 0.6);
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(cx - lineW / 2, lineY);
-  ctx.lineTo(cx + lineW / 2, lineY);
+  ctx.moveTo(w * 0.3, h * 0.72);
+  ctx.lineTo(w * 0.7, h * 0.72);
   ctx.stroke();
 
   // Date
   const now = new Date();
-  const dateSize = Math.max(10, ta.h * 0.065);
-  ctx.font = `400 ${dateSize}px ${serif}`;
+  ctx.font = `400 28px ${serif}`;
   ctx.fillStyle = s.accent;
   ctx.globalAlpha = 0.75;
-  ctx.fillText(`${year}年${now.getMonth()+1}月${now.getDate()}日`, cx, cy + ta.h * 0.42);
+  ctx.fillText(`${year}年${now.getMonth()+1}月${now.getDate()}日`, w / 2, h * 0.84);
   ctx.globalAlpha = 1;
 
   // Corner ornaments
-  const ornSize = Math.max(6, kw * 0.018);
-  const ornOff = ins2 + ornSize * 1.5;
-  drawOrnament(ctx, x + ornOff, y + ornOff, ornSize, s.accent);
-  drawOrnament(ctx, x + kw - ornOff, y + ornOff, ornSize, s.accent);
-  drawOrnament(ctx, x + ornOff, y + kh - ornOff, ornSize, s.accent);
-  drawOrnament(ctx, x + kw - ornOff, y + kh - ornOff, ornSize, s.accent);
+  drawCanvasOrnament(ctx, m + 18, m + 18, 12, s.accent);
+  drawCanvasOrnament(ctx, w - m - 18, m + 18, 12, s.accent);
+  drawCanvasOrnament(ctx, m + 18, h - m - 18, 12, s.accent);
+  drawCanvasOrnament(ctx, w - m - 18, h - m - 18, 12, s.accent);
 
-  ctx.restore();
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  return tex;
 }
 
-function drawOrnament(ctx, x, y, r, color) {
+function drawCanvasOrnament(ctx, x, y, r, color) {
   ctx.save();
   ctx.globalAlpha = 0.45;
   ctx.strokeStyle = color;
-  ctx.lineWidth = Math.max(1, r * 0.2);
-  // Diamond shape
+  ctx.lineWidth = 2;
   ctx.beginPath();
-  ctx.moveTo(x, y - r);
-  ctx.lineTo(x + r, y);
-  ctx.lineTo(x, y + r);
-  ctx.lineTo(x - r, y);
+  ctx.moveTo(x, y - r); ctx.lineTo(x + r, y);
+  ctx.lineTo(x, y + r); ctx.lineTo(x - r, y);
   ctx.closePath();
   ctx.stroke();
-  // Center dot
   ctx.fillStyle = color;
   ctx.globalAlpha = 0.6;
   ctx.beginPath();
@@ -718,17 +791,57 @@ function drawOrnament(ctx, x, y, r, color) {
   ctx.restore();
 }
 
-function roundRect(ctx, x, y, w, h, r) {
-  ctx.beginPath();
-  ctx.moveTo(x + r, y);
-  ctx.lineTo(x + w - r, y); ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-  ctx.lineTo(x + w, y + h - r); ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-  ctx.lineTo(x + r, y + h); ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-  ctx.lineTo(x, y + r); ctx.quadraticCurveTo(x, y, x + r, y);
-  ctx.closePath();
-}
+// ━━ Controls ━━
 
-// ── Shutter ──
+$('back-btn').addEventListener('click', () => {
+  if (xrSession) xrSession.end();
+  if (fallbackStream) fallbackStream.getTracks().forEach(t => t.stop());
+  $('ar-screen').style.display = 'none';
+  $('setup-screen').style.display = 'flex';
+  placed = false;
+  if (kanbanGroup) { scene.remove(kanbanGroup); kanbanGroup = null; }
+});
+
+$('style-btn').addEventListener('click', () => {
+  styleIndex = (styleIndex + 1) % styles.length;
+  showToast(`スタイル：${styles[styleIndex].label}`);
+  if (placed && kanbanGroup) {
+    // Rebuild texture
+    const board = kanbanGroup.children[0];
+    if (board && board.material) {
+      const newTex = createBoardTexture();
+      board.material[4].map = newTex;
+      board.material[4].needsUpdate = true;
+    }
+  }
+  haptic();
+});
+
+$('reset-btn').addEventListener('click', () => {
+  if (kanbanGroup) {
+    if (!arMode) {
+      kanbanGroup.rotation.y = 0;
+      kanbanGroup.scale.setScalar(1);
+    }
+    showToast('リセットしました');
+  }
+  haptic();
+});
+
+$('scale-btn').addEventListener('click', () => {
+  scaleLevel = (scaleLevel + 1) % scaleSizes.length;
+  const labels = ['小', '中', '大'];
+  showToast(`サイズ：${labels[scaleLevel]}`);
+  if (placed && kanbanGroup) {
+    const pos = kanbanGroup.position.clone();
+    const rot = kanbanGroup.rotation.y;
+    placeKanban(pos, new THREE.Quaternion());
+    kanbanGroup.rotation.y = rot;
+  }
+  haptic();
+});
+
+// ━━ Shutter ━━
 $('shutter-btn').addEventListener('click', capturePhoto);
 
 function capturePhoto() {
@@ -737,32 +850,32 @@ function capturePhoto() {
   flash.classList.add('active');
   setTimeout(() => flash.classList.remove('active'), 180);
 
-  const video = $('camera');
-  const cap = document.createElement('canvas');
-  const vw = video.videoWidth, vh = video.videoHeight;
-  cap.width = vw; cap.height = vh;
-  const cctx = cap.getContext('2d');
+  // Render one clean frame
+  renderer.render(scene, camera);
 
-  if (facingMode === 'user') { cctx.translate(vw, 0); cctx.scale(-1, 1); }
-  cctx.drawImage(video, 0, 0, vw, vh);
-  if (facingMode === 'user') { cctx.setTransform(1, 0, 0, 1, 0, 0); }
+  const arCanvas = $('ar-canvas');
+  const captureCanvas = document.createElement('canvas');
+  captureCanvas.width = arCanvas.width;
+  captureCanvas.height = arCanvas.height;
+  const cctx = captureCanvas.getContext('2d');
 
-  drawKanban(cctx, vw, vh);
-
-  lastCaptureUrl = cap.toDataURL('image/jpeg', 0.95);
-  $('preview-img').src = lastCaptureUrl;
-  $('preview-modal').classList.add('show');
-
-  // Enable share button if supported
-  if (navigator.canShare) {
-    $('share-btn').style.display = 'block';
+  // For fallback mode, draw video first
+  if (!arMode) {
+    const video = $('fallback-video');
+    cctx.drawImage(video, 0, 0, captureCanvas.width, captureCanvas.height);
   }
+
+  // Draw 3D scene on top
+  cctx.drawImage(arCanvas, 0, 0);
+
+  const dataUrl = captureCanvas.toDataURL('image/jpeg', 0.95);
+  $('preview-img').src = dataUrl;
+  $('preview-modal').classList.add('show');
+  if (navigator.canShare) $('share-btn').style.display = 'block';
 }
 
-// ── Preview actions ──
-$('close-preview-btn').addEventListener('click', () => {
-  $('preview-modal').classList.remove('show');
-});
+// ━━ Preview ━━
+$('close-preview-btn').addEventListener('click', () => $('preview-modal').classList.remove('show'));
 
 $('save-btn').addEventListener('click', () => {
   const a = document.createElement('a');
@@ -783,10 +896,8 @@ $('share-btn').addEventListener('click', async () => {
   } catch {}
 });
 
-// ── Utilities ──
-function haptic() {
-  if (navigator.vibrate) navigator.vibrate(10);
-}
+// ━━ Utils ━━
+function haptic() { if (navigator.vibrate) navigator.vibrate(10); }
 
 function showToast(text) {
   const el = document.createElement('div');
@@ -795,6 +906,14 @@ function showToast(text) {
   document.body.appendChild(el);
   setTimeout(() => el.remove(), 3200);
 }
+
+// Resize
+window.addEventListener('resize', () => {
+  if (!renderer) return;
+  camera.aspect = window.innerWidth / window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
 </script>
 </body>
 </html>
